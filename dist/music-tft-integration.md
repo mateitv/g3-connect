@@ -1,70 +1,68 @@
 # Music HUD: phone prototype and F3 Pro TFT integration
 
-## Current implementation in this repository
+## Verified phone-side prototype
 
-The Android bridge on `feature/music-hud-prototype` contains a phone-side 240×320 preview:
+The Android bridge in this repository compiles successfully and has been tested by the user on a Samsung S22:
 
-- Android media sessions are read locally by `MapsListener` (Spotify, YouTube Music, and other players that publish a media session).
-- `MusicState` holds title, artist, duration, playback state, position and playback speed.
-- `MusicProgress` interpolates position from Android's last position-update timestamp and clamps it to the track duration.
-- `MusicHudPreview` renders title, artist, a one-second `NOW PLAYING` flash, progress and elapsed/remaining time.
-- Music metadata is not written into the scooter's navigation text fields.
+- Spotify / YouTube Music session detection.
+- Song title and artist.
+- Live progress bar.
+- One-second `NOW PLAYING` flash after a track change.
+- No music metadata is written into scooter navigation text fields.
 - No scooter buttons are remapped.
 
-The missing `MusicState.playing()` helper was added. The Android build still needs a successful CI run before an APK can be called verified.
+This proves the phone-side media-session reader and preview. It does not prove TFT output.
 
-## Stronger TFT path found: NinebotEnhance
+## TFT renderer patch: compiled module builds
 
-The maintained [NinebotEnhance](https://github.com/wx9614-cell/NinebotEnhance) source already has a dashboard music renderer:
+The maintained [NinebotEnhance](https://github.com/wx9614-cell/NinebotEnhance) source already has a music renderer with artwork, title, artist, interpolated progress, elapsed time and total duration.
 
-- title and artist (ellipsized to fit);
-- artwork or a music glyph;
-- interpolated playback progress;
-- elapsed and total time;
-- a portrait/half-screen layout path that scales the 848×480 reference canvas into a 240×320 display.
+The F3 portrait HUD changes are applied by the guarded script `scripts/apply_ninebotenhance_music_hud.py`. It makes seven exact, single-occurrence source edits and fails closed if upstream code differs:
 
-The small-screen layout uses a single vertical card column. The music card is 84 reference pixels high. The existing code supports music as a widget, but its default auto-hide condition can make it disappear after a few seconds. The proposed patch below moves music to the bottom of the portrait column, keeps it visible while a track is active, and adds a one-second `NOW PLAYING` label after track changes. This leaves the upper display area available for the scooter's speed readout. The card will occupy part of the lower display area while music is active.
+1. Start a monotonic one-second timer on a newly observed track.
+2. Redraw during the banner interval and show `NOW PLAYING`.
+3. Keep the music card visible while media is active on portrait / half-screen frames.
+4. Place the music card at the bottom of the single-column layout, leaving the upper display area available.
+5. Do not change BLE vehicle settings or button mappings.
 
-### Source patch prepared
+GitHub Actions successfully compiled the patched NinebotEnhance Android module. The build produced two debug variants:
 
-`patches/NinebotEnhance-240x320-music-hud.patch` contains a proposed patch against the maintained NinebotEnhance source. It changes only dashboard drawing/layout behavior:
+- `ninebotenhance-china-debug.apk` — module scope `cn.ninebot.ninebot`.
+- `ninebotenhance-global-debug.apk` — experimental module scope `com.ninebot.segway`.
 
-1. Track changes start a one-second banner timer.
-2. The banner redraws smoothly and disappears after one second.
-3. The title, artist and progress card remain visible while music is active on portrait displays.
-4. The music card is placed at the bottom of the 240×320 single column.
-5. It does not alter BLE vehicle settings or intercept scooter buttons.
+The global variant only changes the target package and Xposed scope. Its hook targets have not been verified against the international app. The China variant's maintained source lists 6.10.10, 6.10.11 and 6.10.12 as verified versions; newer builds are runtime-checked but not hand-verified.
 
-This patch has not yet been applied to a NinebotEnhance checkout or built. It is source work, not a verified TFT APK.
+**These APKs are Xposed modules, not standalone apps. Do not tap Install on them as if they were G3 Connect.** They must be embedded into the matching host app using NPatch Integrated mode.
 
-## Rootless installation route: NPatch
+## Rootless NPatch route and risks
 
-The current NinebotEnhance module is built against libxposed API 101. NPatch's official documentation explicitly supports modern libxposed API 101/102 modules and runs without root. It offers an integrated mode that embeds the module inside a patched target app, so a separate manager does not need to stay running.
+Official NPatch documentation supports libxposed API 101/102 modules and the integrated command form:
 
-The planned rootless route is therefore:
+```text
+java -jar jar-v1.1.0-857-release.jar --embed module.apk target.apk
+```
 
-1. Use the supported China Segway app package `cn.ninebot.ninebot`, preferably version 6.10.11 as a conservative target. NinebotEnhance lists 6.10.10–6.10.12 as supported; 6.10.12 has a protected business DEX and runtime-checked hooks.
-2. Obtain the official target APK and the maintained NinebotEnhance module APK.
-3. On Windows, use the official NPatch JAR in integrated mode to embed the module in the target app (NPatch documents the `--embed module.apk target.apk` workflow).
-4. Install the patched China app only if its package is not already installed, configure the module, then pair/check compatibility without changing firmware or vehicle settings.
+NPatch re-signs the host app. Android will not install the patched app over the original app with the same package and a different signature; NPatch's documentation says the original must be uninstalled first, which deletes that app's local data. Do not uninstall or patch the user's existing Segway app without a backup and explicit approval.
 
-**Important signature/data warning:** NPatch re-signs the target app. Android will not install that patched APK over an existing app with the same package and a different signature. NPatch's official instructions require uninstalling the original target app first, which deletes that app's local data. The international Segway app uses a different package (`com.ninebot.segway`), so it is not the same package as the China app (`cn.ninebot.ninebot`); however, an already-installed China app would be at risk. Do not uninstall anything or install a patched APK until the package situation and account/pairing implications are checked.
+NinebotEnhance also ships an **Official compatibility mode** that is enabled by default. While enabled, it deliberately disables all host-app hooks. Turning it off enables the HUD hooks, but the project's own documentation warns that the official app may reject the connection when hooks are active. This needs careful validation before the user installs or relies on it.
 
-NPatch documents Android 9+ and libxposed API 101/102 support. NinebotEnhance documents Android 11–16. That makes the S22's Android 16 version a plausible software target, but does not prove the complete combination works on this phone or scooter.
+The international Segway app package is `com.ninebot.segway`; the China app package is `cn.ninebot.ninebot`. The official support guidance distinguishes global and Chinese app variants, so the correct host app must match the scooter's region. Do not assume the China app is suitable for an EU scooter.
 
-## F3 Pro compatibility is still the hardware blocker
+## F3 Pro compatibility is still unverified
 
-- The F3 Pro has a 2.4-inch Smart TFT, but that does not establish its exact dashboard protocol.
-- The archived NinebotPlay branch explicitly reports a 240×320 Bluetooth MPEG2 dashboard tested on an F2z.
-- The maintained NinebotEnhance branch still marks the same 240×320 Bluetooth MPEG2 profile as awaiting hardware verification.
-- The maintained branch has a 240×320/portrait rendering path, but the F3 Pro transport has not been verified.
-- The maintained module's documented write surface is limited to navigation display data (instrument command 113) and day/night theme. No vehicle settings are intentionally changed.
+- The F3 Pro has a 2.4-inch Smart TFT, but that does not establish its exact display transport or frame profile.
+- The archived NinebotPlay project reports a 240×320 Bluetooth MPEG2 profile tested on an F2z.
+- The maintained NinebotEnhance source has a 240×320 portrait layout path, but marks that profile as awaiting hardware verification.
+- No successful screen render has yet been observed on an F3 Pro.
 
-## Acceptance criteria before calling this a working TFT prototype
+The patch itself only changes HUD drawing and layout. The wider NinebotEnhance module can also hook other app functions; keep its optional controls and vehicle-related features disabled during any future test. Its documented vehicle writes are navigation display data and day/night theme, so do not enable or test those features as part of the music HUD work.
 
-- Confirm the F3 Pro display profile and transport without experimental vehicle-setting writes.
-- Confirm the supported China app version and NPatch loading on Android 16.
-- Confirm the renderer receives Spotify / YouTube Music sessions and draws on the F3 Pro TFT.
-- Verify title/artist, one-second track-change banner and progress synchronization.
-- Verify navigation, speed, battery and all normal scooter buttons remain unchanged.
-- Only then prepare a user-installable APK. Until then, the phone preview and source patch are prototypes, not proof of working F3 Pro TFT projection.
+## What remains before a real TFT prototype
+
+1. Confirm whether the user's installed Segway app is global or China and whether a compatible host app can be used without risking existing app data.
+2. Validate NPatch loading and the module's compatibility mode on Android 16.
+3. Verify that the F3 Pro accepts the 240×320 display stream; the F2z result is not proof.
+4. Verify title/artist, the one-second banner and progress on the actual TFT.
+5. Confirm normal speed, battery, navigation, turn signals and mode button remain unaffected.
+
+Until those checks pass, the compiled module is a real software build, but not a verified F3 Pro TFT installation.
