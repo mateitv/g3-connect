@@ -8,6 +8,7 @@ on:
     paths:
       - 'patches/NinebotEnhance-240x320-music-hud.patch'
       - 'scripts/apply_ninebotenhance_music_hud.py'
+      - 'scripts/retarget_ninebotenhance_global.py'
       - '.github/workflows/ninebotenhance-patched-build.yml'
 
 permissions:
@@ -45,16 +46,25 @@ jobs:
         working-directory: NinebotEnhance
         run: sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
 
-      - name: Build patched Android APK
+      - name: Build China-app module variant
         working-directory: NinebotEnhance
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug
+          mkdir -p ../g3-connect/dist
+          cp app/build/outputs/apk/debug/app-debug.apk ../g3-connect/dist/ninebotenhance-china-debug.apk
 
-      - name: Upload patched APK
+      - name: Retarget module to international Segway app
+        working-directory: NinebotEnhance
+        run: |
+          python3 ../g3-connect/scripts/retarget_ninebotenhance_global.py .
+          ./gradlew --no-daemon clean :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../g3-connect/dist/ninebotenhance-global-debug.apk
+
+      - name: Upload both module variants
         uses: actions/upload-artifact@v4
         with:
           name: ninebotenhance-f3-music-hud-debug
-          path: NinebotEnhance/app/build/outputs/apk/debug/*.apk
+          path: g3-connect/dist/*.apk
           if-no-files-found: error
           retention-days: 14
