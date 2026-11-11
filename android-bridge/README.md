@@ -7,7 +7,7 @@ Version 1.1 · Android 8 or newer · APK: [`dist/g3-connect.apk`](../dist/g3-con
 ## Features
 
 - **Navigation:** reads the Google Maps notification on the phone and sends arrow, distance, street and remaining time to the display. Starts and stops automatically.
-- **Music display (experimental):** reads the active Android media session (Spotify, YouTube Music and compatible players), sends track title and artist to the two TFT navigation text fields, and provides previous / play-pause / next controls. Music mode temporarily takes over the navigation display; switch it off to resume Maps. Uses the existing notification-listener access; media metadata stays on-device.
+- **Music HUD prototype (phone preview):** reads the active Android media session (Spotify, YouTube Music and compatible players), shows a 240×320 TFT-layout preview with a one-second “Now Playing” flash, title, artist and a live playback progress bar. Uses the existing notification-listener access; media metadata stays on-device. This prototype does not yet draw on the scooter TFT and does not write music data into navigation fields.
 - **Manual sending:** send your own direction, street and distance to the display, once or every second, also without Maps.
 - **Settings:** acceleration in sport mode (level 1–3) and range display. Every value is read back.
 - **Custom sounds:**
