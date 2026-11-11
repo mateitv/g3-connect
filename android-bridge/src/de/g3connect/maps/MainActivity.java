@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
   TextView t=text("Einrichtung",18,TEXT,Typeface.DEFAULT_BOLD);head.addView(t,new LinearLayout.LayoutParams(0,-2,1));setupSummary=text("",13,MUTED,medium());head.addView(setupSummary);
   setupBody=vertical();add(card,setupBody,6);
   bluetoothStep=step(setupBody,"1","Bluetooth-Berechtigung","Zum Suchen und Verbinden des Rollers.","Erlauben",this::permissions);
-  listenerStep=step(setupBody,"2","Benachrichtigungszugriff","Damit G3 Connect die Google-Maps-Hinweise lesen kann.","Öffnen",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+  listenerStep=step(setupBody,"2","Benachrichtigungszugriff","Für Google-Maps-Hinweise und Spotify / YouTube-Music-Metadaten.","Öffnen",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
   batteryStep=step(setupBody,"3","Akkuoptimierung aus · empfohlen","Verhindert, dass Android die Verbindung unterwegs beendet.","Öffnen",()->{try{startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));}catch(Exception e){notice("Einstellung nicht verfügbar.");}});
   hint(card,"Benachrichtigungszugriff unter Android 13+ gesperrt? In den App-Infos von G3 Connect „Eingeschränkte Einstellungen zulassen“.",10);
  }
@@ -145,11 +145,11 @@ public final class MainActivity extends Activity {
   musicModeSwitch=new Switch(this);musicModeSwitch.setText("HUD-Vorschau auf dem Handy anzeigen");musicModeSwitch.setTextColor(TEXT);musicModeSwitch.setTextSize(TypedValue.COMPLEX_UNIT_SP,14.5f);musicModeSwitch.setChecked(musicPreviewEnabled);
   musicModeSwitch.setOnCheckedChangeListener((v,on)->{musicPreviewEnabled=on;musicPreview.setVisibility(on?View.VISIBLE:View.GONE);});add(card,musicModeSwitch,12);
   LinearLayout controls=row(card,10);
-  musicPrevious=button("⏮",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("previous");});cell(controls,musicPrevious);
-  musicPlay=button("▶ / ⏸",PRIMARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("toggle");});cell(controls,musicPlay);
-  musicNext=button("⏭",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("next");});cell(controls,musicNext);
+  musicPrevious=button("⏮",SECONDARY,()->MusicState.action("previous"));cell(controls,musicPrevious);
+  musicPlay=button("▶ / ⏸",PRIMARY,()->MusicState.action("toggle"));cell(controls,musicPlay);
+  musicNext=button("⏭",SECONDARY,()->MusicState.action("next"));cell(controls,musicNext);
   hint(card,"Echte Live-Vorschau mit Titel, Interpret und Fortschrittsbalken. Sie schreibt ausdrücklich nichts in die Navigationsfelder des Rollers; die TFT-Projektion wird separat weiter untersucht.",10);
-  needsConnection.add(musicPrevious);needsConnection.add(musicPlay);needsConnection.add(musicNext);
+
  }
  // ── Einstellungen ────────────────────────────────────────
  private void settingsCard(LinearLayout column){
