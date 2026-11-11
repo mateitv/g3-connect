@@ -1,0 +1,70 @@
+name: Build patched NinebotEnhance music HUD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/music-hud-prototype
+    paths:
+      - 'patches/NinebotEnhance-240x320-music-hud.patch'
+      - 'scripts/apply_ninebotenhance_music_hud.py'
+      - 'scripts/retarget_ninebotenhance_global.py'
+      - '.github/workflows/ninebotenhance-patched-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out G3 Connect patch
+        uses: actions/checkout@v4
+        with:
+          path: g3-connect
+
+      - name: Check out maintained NinebotEnhance source
+        uses: actions/checkout@v4
+        with:
+          repository: wx9614-cell/NinebotEnhance
+          ref: main
+          path: NinebotEnhance
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: NinebotEnhance/**/*.gradle*
+
+      - name: Apply guarded F3 portrait music HUD source edits
+        working-directory: NinebotEnhance
+        run: python3 ../g3-connect/scripts/apply_ninebotenhance_music_hud.py .
+
+      - name: Use Maven AAPT2 instead of unavailable local override
+        working-directory: NinebotEnhance
+        run: sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
+
+      - name: Build China-app module variant
+        working-directory: NinebotEnhance
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug
+          mkdir -p ../g3-connect/dist
+          cp app/build/outputs/apk/debug/app-debug.apk ../g3-connect/dist/ninebotenhance-china-debug.apk
+
+      - name: Retarget module to international Segway app
+        working-directory: NinebotEnhance
+        run: |
+          python3 ../g3-connect/scripts/retarget_ninebotenhance_global.py .
+          ./gradlew --no-daemon clean :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../g3-connect/dist/ninebotenhance-global-debug.apk
+
+      - name: Upload both module variants
+        uses: actions/upload-artifact@v4
+        with:
+          name: ninebotenhance-f3-music-hud-debug
+          path: g3-connect/dist/*.apk
+          if-no-files-found: error
+          retention-days: 14

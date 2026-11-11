@@ -176,5 +176,16 @@ public final class NativeTests {
   int infoCount=0,stopCount=0;for(byte[] packet:vehicle.sent){if((packet[5]&255)!=0x71)continue;check((packet[4]&255)==0x23,"manual transmission writes TFT only");int index=packet[6]&255;if(index==3){infoCount++;ByteBuffer b=ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN);check(b.getInt(7)==2345500&&b.getInt(11)==90&&b.getShort(15)==7&&b.getInt(17)==321,"encrypted manual payload carries all configured numeric values");}if(index==0x10||index==0x24){same(Arrays.copyOfRange(packet,7,packet.length),NaviPacket.road("Meine Straße"),"configured manual street arrives in current and next-road fields");}if(index==0&&packet.length==8&&packet[7]==0)stopCount++;}
   check(infoCount==2&&stopCount==1,"encrypted repeats terminate with exactly one confirmed stop");client.close();
  }
- public static void main(String[] args)throws Exception{crypto(args[0]);parsing();notificationFormats();arrivalTimes();placeholderDistance();departuresAndIcons();manualSending();protocol();sound();lifecycle();System.out.println("Android native: "+checks+" checks passed (Python crypto vectors, encrypted fake scooter, pairing, settings, Maps lifecycle, UTF8).");}
+ static void musicProgress(){
+  check(MusicProgress.position(45000,180000,3,1f,10000,15000)==50000,"playing position advances on elapsed realtime");
+  check(MusicProgress.position(45000,180000,2,1f,10000,15000)==45000,"paused position stays fixed");
+  check(MusicProgress.position(45000,180000,4,2f,10000,15000)==55000,"fast-forward position follows positive playback speed");
+  check(MusicProgress.position(45000,180000,5,-1f,10000,15000)==40000,"rewind position follows negative playback speed");
+  check(MusicProgress.position(179000,180000,3,2f,10000,15000)==180000,"position clamps at track duration");
+  check(MusicProgress.position(-1,180000,3,1f,10000,15000)==-1,"unknown position stays unknown");
+  check(Math.abs(MusicProgress.fraction(90000,180000)-0.5f)<0.0001f,"progress fraction is half at midpoint");
+  check(MusicProgress.fraction(200000,180000)==1f,"progress fraction clamps to full");
+  check(MusicProgress.time(125000).equals("2:05")&&MusicProgress.time(-1).equals("--:--"),"music time labels");
+ }
+ public static void main(String[] args)throws Exception{crypto(args[0]);musicProgress();parsing();notificationFormats();arrivalTimes();placeholderDistance();departuresAndIcons();manualSending();protocol();sound();lifecycle();System.out.println("Android native: "+checks+" checks passed (Python crypto vectors, encrypted fake scooter, pairing, settings, Maps lifecycle, UTF8).");}
 }

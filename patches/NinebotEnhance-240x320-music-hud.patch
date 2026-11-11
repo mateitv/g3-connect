@@ -1,0 +1,51 @@
+diff --git a/app/src/main/java/dev/ichinomiya/ninebotenhance/notification/DashboardHud.java b/app/src/main/java/dev/ichinomiya/ninebotenhance/notification/DashboardHud.java
+--- a/app/src/main/java/dev/ichinomiya/ninebotenhance/notification/DashboardHud.java
++++ b/app/src/main/java/dev/ichinomiya/ninebotenhance/notification/DashboardHud.java
+@@ -66,1 +66,3 @@
+-    private final long[] shownUntil=new long[WidgetSettings.CONDITIONAL.length];private String musicKeyShown="";private boolean musicMovingShown;
++    private final long[] shownUntil=new long[WidgetSettings.CONDITIONAL.length];private String musicKeyShown="";private boolean musicMovingShown;
++    /** Monotonic timestamp of the last newly observed track; used for the one-second toast. */
++    private long musicTrackChangedAt;
+@@ -90,1 +92,1 @@
+-        ride=null;Arrays.fill(shownUntil,0);musicKeyShown="";musicMovingShown=false;volumeSeq=-1;volumeShownAt=volumeShownUntil=-1;volumeFillAt=0;volumeFillFrom=volumeFillTo=0;revision++;
++        ride=null;Arrays.fill(shownUntil,0);musicKeyShown="";musicMovingShown=false;musicTrackChangedAt=0;volumeSeq=-1;volumeShownAt=volumeShownUntil=-1;volumeFillAt=0;volumeFillFrom=volumeFillTo=0;revision++;
+@@ -128,7 +130,9 @@
+         // A track change or a play/pause change fires the matching triggers; a track appearing counts as both.
+         if(activeMusic(nextMusic)){
+             String key=musicKey(nextMusic);boolean moving=MusicPlayback.moving(nextMusic.getInt("state"));
+-            int fired=(!musicActive()||!key.equals(musicKeyShown)?WidgetCondition.TRACK_CHANGE:0)|(!musicActive()||moving!=musicMovingShown?WidgetCondition.PLAYBACK_CHANGE:0);
++            boolean trackChanged=!musicActive()||!key.equals(musicKeyShown);
++            if(trackChanged)musicTrackChangedAt=now;
++            int fired=(trackChanged?WidgetCondition.TRACK_CHANGE:0)|(!musicActive()||moving!=musicMovingShown?WidgetCondition.PLAYBACK_CHANGE:0);
+             if(fired!=0)fire(fired,now);
+             musicKeyShown=key;musicMovingShown=moving;
+-        }else musicKeyShown="";
++        }else{musicKeyShown="";musicTrackChangedAt=0;}
+@@ -205,1 +209,4 @@
+-        if(widgets.enabled(WidgetSettings.MUSIC)&&(musicActive()?conditionMet(WidgetSettings.MUSIC,now):widgets.condition(WidgetSettings.MUSIC).mode()==WidgetCondition.ALWAYS))mask|=WidgetSettings.MUSIC;
++        // On the 240x320 portrait dashboard, keep the active music card visible; the brief
++        // NOW PLAYING label is transient, but title, artist and progress remain on screen.
++        if(widgets.enabled(WidgetSettings.MUSIC)&&(musicActive()&&(halfScreen||conditionMet(WidgetSettings.MUSIC,now))
++                ||!musicActive()&&widgets.condition(WidgetSettings.MUSIC).mode()==WidgetCondition.ALWAYS))mask|=WidgetSettings.MUSIC;
+@@ -244,1 +251,2 @@
+-        long tick=animating(now)?now/50:musicMoving(now)||chartLive(now)||probeShown()?now/1000:0;
++        boolean nowPlayingBanner=musicTrackChangedAt>0&&now>=musicTrackChangedAt&&now-musicTrackChangedAt<1000;
++        long tick=animating(now)||nowPlayingBanner?now/50:musicMoving(now)||chartLive(now)||probeShown()?now/1000:0;
+@@ -323,1 +331,5 @@
+         if(!idle)centerLine(c,fit(musicArtist(),labelsWidth,10,false),labelsLeft,headerCenter+9,10,p.label(),false);
++        if(!idle&&musicTrackChangedAt>0&&now>=musicTrackChangedAt&&now-musicTrackChangedAt<1000){
++            paint.setStyle(Paint.Style.FILL);paint.setTextSize(8);paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
++            paint.setColor(p.accent());String notice="NOW PLAYING";c.drawText(notice,labelsLeft,11,paint);
++        }
+diff --git a/app/src/main/java/dev/ichinomiya/ninebotenhance/core/SidebarLayout.java b/app/src/main/java/dev/ichinomiya/ninebotenhance/core/SidebarLayout.java
+--- a/app/src/main/java/dev/ichinomiya/ninebotenhance/core/SidebarLayout.java
++++ b/app/src/main/java/dev/ichinomiya/ninebotenhance/core/SidebarLayout.java
+@@ -101,1 +101,7 @@
+-        if(singleColumn){ArrayList<Integer> all=new ArrayList<>(right);all.addAll(left);right=all;left=List.of();dodge=false;occlusions=List.of();}
++        if(singleColumn){
++            ArrayList<Integer> all=new ArrayList<>(right);all.addAll(left);
++            // In portrait half-screen mode the music card occupies the bottom band,
++            // leaving the upper part of the display unobstructed for the speed readout.
++            all.remove(Integer.valueOf(WidgetSettings.MUSIC));all.add(0,WidgetSettings.MUSIC);
++            right=all;left=List.of();dodge=false;occlusions=List.of();
++        }
