@@ -1,7 +1,7 @@
 name: Android bridge build
 on:
   push:
-    branches: [feature/music-display]
+    branches: [feature/music-display, feature/music-hud-prototype]
     paths:
       - 'android-bridge/**'
       - '.github/workflows/android-bridge.yml'
