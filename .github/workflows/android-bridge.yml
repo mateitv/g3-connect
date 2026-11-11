@@ -10,7 +10,7 @@ on:
       - 'android-bridge/**'
       - '.github/workflows/android-bridge.yml'
 concurrency:
-  group: android-bridge-${{ github.ref }}
+  group: android-bridge-music-hud-prototype
   cancel-in-progress: true
 jobs:
   build:
