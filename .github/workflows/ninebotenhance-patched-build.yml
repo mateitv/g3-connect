@@ -41,6 +41,10 @@ jobs:
         working-directory: NinebotEnhance
         run: python3 ../g3-connect/scripts/apply_ninebotenhance_music_hud.py .
 
+      - name: Use Maven AAPT2 instead of unavailable local override
+        working-directory: NinebotEnhance
+        run: sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
+
       - name: Build patched Android APK
         working-directory: NinebotEnhance
         run: |
