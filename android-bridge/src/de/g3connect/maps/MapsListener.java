@@ -1,16 +1,41 @@
 package de.g3connect.maps;
 import android.app.Notification;
 import android.service.notification.*;
+import android.content.ComponentName;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
 import android.os.*;
 import java.util.*;
 import org.json.JSONObject;
 /** Reads Google Maps only. No server, network, Chrome or second application is involved. */
 public final class MapsListener extends NotificationListenerService {
  private IconModel classifier;private final Handler handler=new Handler(Looper.getMainLooper());private long removedAt;private String routeKey;
- private final Runnable poll=new Runnable(){public void run(){if(!MapsState.listenerReady)return;refresh();handler.postDelayed(this,1000);}};
+ private final Runnable poll=new Runnable(){public void run(){if(!MapsState.listenerReady)return;refresh();refreshMedia();handler.postDelayed(this,1000);}};
  @Override public void onListenerConnected(){MapsState.listenerReady=true;closeModel();try{classifier=new IconModel(this);}catch(Exception ignored){MapsState.clear("Pfeilmodell konnte nicht geladen werden.");}handler.removeCallbacks(poll);handler.post(poll);}
- @Override public void onListenerDisconnected(){MapsState.listenerReady=false;handler.removeCallbacks(poll);MapsState.clear("Benachrichtigungszugriff getrennt.");closeModel();}
- @Override public void onDestroy(){MapsState.listenerReady=false;handler.removeCallbacksAndMessages(null);MapsState.clear("Maps-Dienst beendet.");closeModel();super.onDestroy();}
+ @Override public void onListenerDisconnected(){MapsState.listenerReady=false;handler.removeCallbacks(poll);MapsState.clear("Benachrichtigungszugriff getrennt.");MusicState.clear();closeModel();}
+ @Override public void onDestroy(){MapsState.listenerReady=false;handler.removeCallbacksAndMessages(null);MapsState.clear("Maps-Dienst beendet.");MusicState.clear();closeModel();super.onDestroy();}
+ private void refreshMedia(){
+  try{
+   MediaSessionManager manager=getSystemService(MediaSessionManager.class);
+   List<MediaController> sessions=manager.getActiveSessions(new ComponentName(this,MapsListener.class));
+   MediaController selected=null;long newest=-1;
+   if(sessions!=null)for(MediaController c:sessions){
+    PlaybackState p=c.getPlaybackState();if(p==null)continue;
+    int state=p.getState();if(state!=PlaybackState.STATE_PLAYING&&state!=PlaybackState.STATE_PAUSED&&state!=PlaybackState.STATE_BUFFERING)continue;
+    long updated=p.getLastPositionUpdateTime();
+    if(state==PlaybackState.STATE_PLAYING){selected=c;break;}
+    if(selected==null||updated>newest){selected=c;newest=updated;}
+   }
+   if(selected==null){MusicState.clear();return;}
+   MediaMetadata m=selected.getMetadata();
+   String title=m==null?null:m.getString(MediaMetadata.METADATA_KEY_TITLE);
+   String artist=m==null?null:m.getString(MediaMetadata.METADATA_KEY_ARTIST);
+   if(artist==null&&m!=null)artist=m.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
+   MusicState.update(selected,title,artist);
+  }catch(SecurityException e){MusicState.clear();}catch(Exception e){ConnectService.log("Medienstatus nicht lesbar: "+e.getClass().getSimpleName());}
+ }
  private void closeModel(){if(classifier!=null){classifier.close();classifier=null;}}
  @Override public void onNotificationPosted(StatusBarNotification n){if(!"com.google.android.apps.maps".equals(n.getPackageName()))return;handler.post(()->refresh());}
  @Override public void onNotificationRemoved(StatusBarNotification n){if(!"com.google.android.apps.maps".equals(n.getPackageName()))return;if(n.getKey().equals(routeKey)){removedAt=System.currentTimeMillis();handler.postDelayed(()->refresh(),1250);}}
