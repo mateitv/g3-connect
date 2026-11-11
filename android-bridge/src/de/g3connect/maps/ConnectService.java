@@ -41,7 +41,7 @@ public final class ConnectService extends Service {
     String title=MusicState.title,artist=MusicState.artist;
     if(title==null||title.isEmpty()){title="Keine Musik aktiv";artist="Spotify / YouTube Music öffnen";}
     String key=title+"|"+(artist==null?"":artist);
-    if(!key.equals(lastMusicKey)){client.music(title,artist==null?"":artist);lastMusicKey=key;}
+    client.music(title,artist==null?"":artist);lastMusicKey=key;
    }
    else if(testUntil!=0){if(now>=testUntil){testUntil=0;navigation.stop();log("Displaytest nach 15 Sekunden beendet.");}else navigation.tick(true,true,new MapsState.Sample(100,300,120,2,1,"Displaytest",now),now);}
    else {if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;lastMusicKey="";log("Musikmodus beendet · Maps übernimmt wieder.");}navigation.tick(armed,MapsState.listenerReady,MapsState.current,now);}
