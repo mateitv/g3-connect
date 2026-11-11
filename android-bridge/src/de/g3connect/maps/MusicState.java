@@ -21,4 +21,14 @@ final class MusicState {
   return MusicProgress.position(positionMs,durationMs,playbackState,playbackSpeed,positionUpdatedAt,SystemClock.elapsedRealtime());
  }
  static String time(long millis){return MusicProgress.time(millis);}
+ static void action(String action){
+  MediaController current=controller;if(current==null)return;
+  try{
+   MediaController.TransportControls controls=current.getTransportControls();
+   if("previous".equals(action))controls.skipToPrevious();
+   else if("next".equals(action))controls.skipToNext();
+   else if(playing())controls.pause();else controls.play();
+  }catch(RuntimeException e){ConnectService.log("Mediensteuerung fehlgeschlagen: "+e.getClass().getSimpleName());}
+ }
+
 }
