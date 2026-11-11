@@ -31,8 +31,10 @@ final class NinebotClient {
  void guidance(MapsState.Sample sample,int total)throws Exception{requireReady();if(!sample.valid())throw new IllegalArgumentException("Unvollständiger Maps-Hinweis.");send(0x23,0x71,1,NaviPacket.number(total));send(0x23,0x71,0x10,NaviPacket.road(sample.currentRoad));send(0x23,0x71,0x24,NaviPacket.road(sample.road));send(0x23,0x71,3,NaviPacket.info(sample));}
  void music(String title,String artist)throws Exception{
   requireReady();
+  send(0x23,0x71,1,NaviPacket.number(0));
   send(0x23,0x71,0x10,NaviPacket.road(title));
   send(0x23,0x71,0x24,NaviPacket.road(artist));
+  send(0x23,0x71,3,NaviPacket.musicInfo());
  }
  void acceleration(int level)throws Exception {if(level<1||level>3)throw new IllegalArgumentException();stationary();int old=read(0x6e);if(old<1||old>3)throw new IllegalStateException("Beschleunigungsregister unbekannt.");send(0x16,2,0x6e,new byte[]{(byte)level,0});await(0x16,5,0x6e,3000);readback(0x6e,level);log.line("Beschleunigungsstufe durch Rücklesen bestätigt: "+level);}
  private void readback(int index,int expected)throws Exception{for(int attempt=0;attempt<5;attempt++){if(read(index)==expected)return;if(attempt<4)Thread.sleep(100);}throw new IllegalStateException("Registeränderung durch Rücklesen nicht bestätigt.");}
