@@ -77,7 +77,7 @@ final class MusicHudPreview extends View {
         canvas.drawRoundRect(box, 4, 4, paint);
         long duration = MusicState.durationMs;
         long position = MusicState.positionNow();
-        float progress = duration > 0 && position >= 0 ? Math.max(0f, Math.min(1f, position / (float) duration)) : 0f;
+        float progress = MusicProgress.fraction(position, duration);
         if (progress > 0) {
             paint.setColor(0xFF4ED6C2);
             box.set(14, 220, 14 + 212 * progress, 228);
