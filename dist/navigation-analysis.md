@@ -128,3 +128,12 @@ Der neue Button „Manuell senden / Dauersenden …“ öffnet eine schlichte Ei
 Manuelles Senden funktioniert ohne Maps und ohne Benachrichtigungszugriff. Es pausiert die Maps-Automatik. Der eigene Stopp-Button, globaler Navigationsstopp und Trennung beenden den Modus; erneutes Aktivieren der Maps-Automatik übergibt nach Stop des manuellen Datensatzes wieder an Maps. Laufzeit und Sendetakt basieren auf monotoner Zeit. Alle Pakete bleiben auf derselben serialisierten, verschlüsselten GATT-Sitzung; keine Motorbefehle werden durch den manuellen Sender eingeführt.
 
 276 native Prüfungen bestehen. Zusätzliche Fälle prüfen Endlos-/Einmalmodus, Zeitlimit, Stopp ohne spätere Wiederholungen, Countdown, Komma-Eingaben, Grenzen und Moduswechsel sowie tatsächlich verschlüsselte TFT-Nutzdaten mit frei gewählter Straße/Richtung/Zeit/Distanz. APK gebaut und signiert. Die neue Eingabemaske und sichtbare Ausgabe müssen noch am Nutzergerät geprüft werden.
+
+
+## Musikdisplay-Recherche · 11.11.2026
+
+Das offizielle MAX-G3-Gerätepaket enthält zusätzlich zum SimpleNavi-Datensatz einen TFT-Befehl für Text: Zielboard `0x23`, Befehl `0x71`, Index `0x38`, Operation `writeNR`. Dieser Eintrag wurde in der bisherigen Android-Implementierung nicht verwendet. Er ist ein konkreter neuer Ansatz für eine separate Textanzeige und sollte vor weiteren Versuchen mit den Navigationsfeldern untersucht werden.
+
+**Noch nicht belegt:** Nutzdatenformat und maximale Textlänge dieses Befehls, ob er einen kurzzeitigen Hinweis oder einen dauerhaften Bereich beschreibt, ob er unabhängig von `SimpleNavi` arbeitet und ob die Anzeige dabei Geschwindigkeit/Batterie unverändert lässt. Deshalb wird `0x38` noch nicht an den Roller gesendet. Insbesondere ist aus der Bezeichnung „Text“ allein weder ein Benachrichtigungs-Overlay noch eine Fortschrittsleiste ableitbar. Die aktuelle Musikimplementierung schreibt weiterhin in die Navigationsfelder und übernimmt damit den Navigationsbildschirm; sie erfüllt den gewünschten unabhängigen Musikbalken ausdrücklich noch nicht.
+
+Nächster Protokollschritt: die genaue `device_commands`-Definition und die Hersteller-App-Aufrufstelle für TFT-Text (`0x71 / 0x38`) korrelieren, Nutzdatenstruktur und Lebenszyklus bestimmen und erst danach eine isolierte, abschaltbare Implementierung samt verschlüsseltem Pakettest ergänzen. Die Medienquelle kann Titel, Interpret, Laufzeit und Playback-Position über Androids MediaSession liefern; das TFT-Protokoll muss aber erst nachweislich einen geeigneten Fortschrittsbereich anbieten.

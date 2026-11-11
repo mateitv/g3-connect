@@ -10,13 +10,13 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 /** User-started connected-device foreground service; stays active while Maps is in front. */
 public final class ConnectService extends Service {
- static volatile ConnectService instance;static volatile String status="Nicht verbunden.";static volatile boolean connected,armed=true,manualActive;static volatile String manualStatus="Manuelles Senden aus.",deviceName="";
+ static volatile ConnectService instance;static volatile String status="Nicht verbunden.";static volatile boolean connected,armed=true,manualActive,musicMode;static volatile String manualStatus="Manuelles Senden aus.",deviceName="";
  private static final StringBuilder LOG=new StringBuilder();
  static synchronized void log(String value){String clean=value.replaceAll("(?i)[0-9a-f]{32,}","[entfernt]");LOG.append(new SimpleDateFormat("HH:mm:ss.SSS",Locale.ROOT).format(new Date())).append(" ").append(clean).append('\n');if(LOG.length()>28000)LOG.delete(0,LOG.indexOf("\n",LOG.length()-24000)+1);}
  static synchronized String logs(){return LOG.toString();}
  static void arm(boolean value){if(armed==value)return;armed=value;log("Maps-Automatik "+(value?"ein":"aus"));ConnectService current=instance;if(value&&current!=null)current.useMaps();}
  private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor();private final Handler main=new Handler(Looper.getMainLooper());
- private volatile BleWire wire;private volatile NinebotClient client;private NavigationLoop navigation;private final ManualSender manual=new ManualSender();private volatile boolean closing;private boolean connecting;private long testUntil,wakeRenewAt;private String lastMapsStatus="";
+ private volatile BleWire wire;private volatile NinebotClient client;private NavigationLoop navigation;private final ManualSender manual=new ManualSender();private volatile boolean closing;private boolean connecting,musicDisplayActive;private String lastMusicKey="";private long testUntil,wakeRenewAt;private String lastMapsStatus="";
  private PowerManager.WakeLock wake;
  @Override public void onCreate(){super.onCreate();instance=this;NotificationManager manager=getSystemService(NotificationManager.class);manager.createNotificationChannel(new NotificationChannel("g3-connection","G3-Verbindung",NotificationManager.IMPORTANCE_LOW));
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
@@ -36,26 +36,49 @@ public final class ConnectService extends Service {
  private void open(String address,String name,byte[] key)throws Exception{if(closing)throw new InterruptedException();BluetoothAdapter adapter=((BluetoothManager)getSystemService(BLUETOOTH_SERVICE)).getAdapter();if(adapter==null||!adapter.isEnabled())throw new IllegalStateException("Bluetooth einschalten.");status="GATT verbinden …";log(status);wire=new BleWire(this,adapter.getRemoteDevice(address));if(closing){wire.close();throw new InterruptedException();}wire.open();log("GATT bereit · Nordic UART · MTU ausgehandelt.");client=new NinebotClient(wire,s->{if(!s.startsWith("TX ")&&!s.startsWith("RX "))status=s;log(s);});client.authenticate(name,key,password->{if(!closing)getSharedPreferences("g3",MODE_PRIVATE).edit().putString("pair:"+address,Base64.encodeToString(password,Base64.NO_WRAP)).apply();});}
  private void tick(){if(closing||!connected||client==null||navigation==null)return;try{client.pump();long now=System.currentTimeMillis();
    if(manual.active()){manual.tick(navigation,now,SystemClock.elapsedRealtime());manualActive=manual.active();manualStatus=manual.status(SystemClock.elapsedRealtime());if(!manualActive)log("Manuelles Senden nach Laufzeit beendet.");}
+   else if(musicMode){
+    if(!musicDisplayActive){navigation.stop();client.startNavigation();musicDisplayActive=true;lastMusicKey="";log("Musikmodus am TFT gestartet · Maps pausiert.");}
+    String title=MusicState.title,artist=MusicState.artist;
+    if(title==null||title.isEmpty()){title="Keine Musik aktiv";artist="Spotify / YouTube Music öffnen";}
+    String key=title+"|"+(artist==null?"":artist);
+    client.music(title,artist==null?"":artist);lastMusicKey=key;
+   }
    else if(testUntil!=0){if(now>=testUntil){testUntil=0;navigation.stop();log("Displaytest nach 15 Sekunden beendet.");}else navigation.tick(true,true,new MapsState.Sample(100,300,120,2,1,"Displaytest",now),now);}
-   else navigation.tick(armed,MapsState.listenerReady,MapsState.current,now);
+   else {if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;lastMusicKey="";log("Musikmodus beendet · Maps übernimmt wieder.");}navigation.tick(armed,MapsState.listenerReady,MapsState.current,now);}
    if(armed&&!manual.active()&&MapsState.current==null&&!MapsState.status.equals(lastMapsStatus)){lastMapsStatus=MapsState.status;log(lastMapsStatus);}
-   boolean active=navigation.active();status=manualActive?manualStatus:active?"Navigation ans G3 aktiv.":!armed?"Verbunden · Maps-Automatik aus.":"Verbunden · wartet auf vollständige Maps-Navigation.";
+   boolean active=navigation.active()||musicDisplayActive;status=musicMode?"Musikmodus am G3 aktiv · "+(MusicState.title==null?"":MusicState.title):manualActive?manualStatus:active?"Navigation ans G3 aktiv.":!armed?"Verbunden · Maps-Automatik aus.":"Verbunden · wartet auf vollständige Maps-Navigation.";
    if(active){if(!wake.isHeld()||now-wakeRenewAt>=60000){wake.acquire(10*60*1000L);wakeRenewAt=now;}}else if(wake.isHeld())wake.release();
-  }catch(Exception e){log("Navigation angehalten: "+message(e));status="Angehalten: "+message(e);try{navigation.stop();}catch(Exception ignored){}finish();}}
- void displayTest(){if(!connected||closing){log("Zuerst verbinden.");return;}worker.execute(()->{try{if(closing)return;client.stationary();manual.clear();manualActive=false;manualStatus=manual.status(0);navigation.stop();testUntil=System.currentTimeMillis()+15000;log("Synthetischer Displaytest: Linkspfeil, 100 m, 15 Sekunden.");}catch(Exception e){log("Displaytest fehlgeschlagen: "+message(e));}});}
- void stopNavigation(){armed=false;worker.execute(()->{testUntil=0;manual.clear();manualActive=false;manualStatus=manual.status(0);try{if(navigation!=null)navigation.stop();}catch(Exception e){log("Navigationsstopp nicht bestätigt: "+message(e));}});}
+  }catch(Exception e){log("Navigation angehalten: "+message(e));status="Angehalten: "+message(e);try{if(musicDisplayActive)client.stopNavigation();else navigation.stop();}catch(Exception ignored){}finish();}}
+ void displayTest(){if(!connected||closing){log("Zuerst verbinden.");return;}worker.execute(()->{try{if(closing)return;if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;}musicMode=false;client.stationary();manual.clear();manualActive=false;manualStatus=manual.status(0);navigation.stop();testUntil=System.currentTimeMillis()+15000;log("Synthetischer Displaytest: Linkspfeil, 100 m, 15 Sekunden.");}catch(Exception e){log("Displaytest fehlgeschlagen: "+message(e));}});}
+ void stopNavigation(){armed=false;musicMode=false;worker.execute(()->{testUntil=0;manual.clear();manualActive=false;manualStatus=manual.status(0);try{if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;}else if(navigation!=null)navigation.stop();}catch(Exception e){log("Navigationsstopp nicht bestätigt: "+message(e));}});}
+ void setMusicMode(boolean enabled){
+  if(!connected||closing){log("Zuerst mit dem Roller verbinden.");return;}
+  worker.execute(()->{if(closing)return;try{
+   if(enabled){testUntil=0;if(manual.active()){manual.stop(navigation);manualActive=false;}musicMode=true;lastMusicKey="";status="Musikmodus wird gestartet …";}
+   else{musicMode=false;if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;lastMusicKey="";}status="Musikmodus beendet · Maps übernimmt wieder.";}
+  }catch(Exception e){musicMode=false;log("Musikmodus fehlgeschlagen: "+message(e));finish();}});
+ }
+ void musicAction(String action){
+  if(!connected||closing){log("Zuerst mit dem Roller verbinden.");return;}
+  worker.execute(()->{try{android.media.session.MediaController c=MusicState.controller;if(c==null){log("Keine aktive Medien-App gefunden.");return;}
+   android.media.session.PlaybackState p=c.getPlaybackState();android.media.session.MediaController.TransportControls controls=c.getTransportControls();
+   if("previous".equals(action))controls.skipToPrevious();
+   else if("next".equals(action))controls.skipToNext();
+   else if(p!=null&&p.getState()==android.media.session.PlaybackState.STATE_PLAYING)controls.pause();else controls.play();
+  }catch(Exception e){log("Mediensteuerung fehlgeschlagen: "+message(e));}});
+ }
  void startManual(ManualSender.Config config){
   if(!connected||closing){log("Zuerst verbinden.");return;}
   arm(false);
-  worker.execute(()->{if(closing)return;try{testUntil=0;manual.stop(navigation);manual.start(config,SystemClock.elapsedRealtime());manual.tick(navigation,System.currentTimeMillis(),SystemClock.elapsedRealtime());manualActive=true;manualStatus=manual.status(SystemClock.elapsedRealtime());status=manualStatus;log("Manueller Datensatz gestartet · "+(config.repeat?"Dauersenden":"einmal")+" · Sendedauer "+config.duration+" s.");}catch(Exception e){manual.clear();manualActive=false;manualStatus="Manuelles Senden fehlgeschlagen: "+message(e);log(manualStatus);try{navigation.stop();}catch(Exception ignored){}finish();}});
+  worker.execute(()->{if(closing)return;try{musicMode=false;if(musicDisplayActive){client.stopNavigation();musicDisplayActive=false;}testUntil=0;manual.stop(navigation);manual.start(config,SystemClock.elapsedRealtime());manual.tick(navigation,System.currentTimeMillis(),SystemClock.elapsedRealtime());manualActive=true;manualStatus=manual.status(SystemClock.elapsedRealtime());status=manualStatus;log("Manueller Datensatz gestartet · "+(config.repeat?"Dauersenden":"einmal")+" · Sendedauer "+config.duration+" s.");}catch(Exception e){manual.clear();manualActive=false;manualStatus="Manuelles Senden fehlgeschlagen: "+message(e);log(manualStatus);try{navigation.stop();}catch(Exception ignored){}finish();}});
  }
  void stopManual(){if(closing)return;worker.execute(()->{if(!manual.active())return;try{manual.stop(navigation);manualActive=false;manualStatus=manual.status(0);status=manualStatus;log("Manuelles Senden gestoppt.");}catch(Exception e){log("Manueller Stopp nicht bestätigt: "+message(e));finish();}});}
  private void useMaps(){if(closing)return;worker.execute(()->{if(!manual.active())return;try{manual.stop(navigation);manualActive=false;manualStatus=manual.status(0);log("Manuelles Senden beendet; Maps-Automatik übernimmt.");}catch(Exception e){log("Moduswechsel fehlgeschlagen: "+message(e));finish();}});}
  interface Job {void run(NinebotClient client)throws Exception;}
  void command(Job job){if(!connected||closing){log("Zuerst verbinden.");return;}worker.execute(()->{if(closing)return;try{job.run(client);}catch(Exception e){log("Einstellung fehlgeschlagen: "+message(e));}});}
- void disconnect(){if(closing)return;closing=true;if(!connected){if(wire!=null)wire.close();finish();return;}main.postDelayed(()->finish(),4500);worker.execute(()->{try{if(navigation!=null)navigation.stop();}catch(Exception e){log("Navigationsstopp nicht bestätigt: "+message(e));}finally{finish();}});}
- private void finish(){closing=true;connected=false;manualActive=false;manualStatus="Manuelles Senden aus · Verbindung beendet.";BleWire w=wire;if(w!=null)w.close();if(wake!=null&&wake.isHeld())wake.release();main.post(()->{stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();});}
+ void disconnect(){if(closing)return;closing=true;if(!connected){if(wire!=null)wire.close();finish();return;}main.postDelayed(()->finish(),4500);worker.execute(()->{try{if(musicDisplayActive)client.stopNavigation();else if(navigation!=null)navigation.stop();}catch(Exception e){log("Navigationsstopp nicht bestätigt: "+message(e));}finally{finish();}});}
+ private void finish(){closing=true;connected=false;musicMode=false;musicDisplayActive=false;manualActive=false;manualStatus="Manuelles Senden aus · Verbindung beendet.";BleWire w=wire;if(w!=null)w.close();if(wake!=null&&wake.isHeld())wake.release();main.post(()->{stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();});}
  static String message(Exception e){if(e instanceof SecurityException)return "Bluetooth-Berechtigung fehlt.";String m=e.getMessage();return m==null?e.getClass().getSimpleName():m;}
- @Override public void onDestroy(){closing=true;connected=false;manualActive=false;manualStatus="Manuelles Senden aus · Verbindung beendet.";if(wire!=null)wire.close();worker.shutdownNow();if(wake!=null&&wake.isHeld())wake.release();main.removeCallbacksAndMessages(null);instance=null;if(!status.startsWith("Verbindung fehlgeschlagen")&&!status.startsWith("Angehalten"))status="Nicht verbunden.";log("Verbindung beendet.");super.onDestroy();}
+ @Override public void onDestroy(){closing=true;connected=false;musicMode=false;musicDisplayActive=false;manualActive=false;manualStatus="Manuelles Senden aus · Verbindung beendet.";if(wire!=null)wire.close();worker.shutdownNow();if(wake!=null&&wake.isHeld())wake.release();main.removeCallbacksAndMessages(null);instance=null;if(!status.startsWith("Verbindung fehlgeschlagen")&&!status.startsWith("Angehalten"))status="Nicht verbunden.";log("Verbindung beendet.");super.onDestroy();}
  @Override public IBinder onBind(Intent intent){return null;}
 }

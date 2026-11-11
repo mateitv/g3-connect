@@ -30,7 +30,7 @@ public final class MainActivity extends Activity {
  private static final int OFFLINE=0,CONNECTING=1,PAIRING=2,CONNECTED=3,NAVIGATING=4,FAILED=5;
  private int BG,SURFACE,SURFACE2,BORDER,BORDER_STRONG,TEXT,MUTED,ACCENT,ACCENT_STRONG,ACCENT_SOFT,ON_ACCENT,DANGER,DANGER_SOFT,SUCCESS,SUCCESS_SOFT,WARN,WARN_SOFT,LOG_BG,LOG_TEXT;
  private boolean night;
- private TextView keyButton,chip,statusTitle,statusDetail,primary,search,repair,scanLabel,setupSummary,navMain,navRoad,navMeta,manualState,manualStop,settingsInfo,logView,logToggle;
+ private TextView keyButton,chip,statusTitle,statusDetail,primary,search,repair,scanLabel,setupSummary,navMain,navRoad,navMeta,manualState,manualStop,settingsInfo,logView,logToggle,musicTitle,musicArtist,musicPlay,musicPrevious,musicNext; private Switch musicModeSwitch;
  private LinearLayout statusBox,secondaryRow,devices,scanRow,maneuver,setupBody;private TurnIcon turn;private Switch automatic;
  private final TextView[] levels=new TextView[3],ranges=new TextView[2];private final List<View> needsConnection=new ArrayList<>();
  private Step bluetoothStep,listenerStep,batteryStep;private boolean logExpanded,wasConnected;private String shownLog="";private int primaryMode;
@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
   LinearLayout column=new LinearLayout(this);column.setOrientation(LinearLayout.VERTICAL);int pad=dp(16);
   column.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(pad+insets.getSystemWindowInsetLeft(),dp(8)+insets.getSystemWindowInsetTop(),pad+insets.getSystemWindowInsetRight(),dp(24)+insets.getSystemWindowInsetBottom());return insets.consumeSystemWindowInsets();});
   ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(BG);scroll.setClipToPadding(false);scroll.addView(column);setContentView(scroll);
-  header(column);scooterCard(column);setupCard(column);navigationCard(column);settingsCard(column);soundCard(column);logCard(column);infoCard(column);
+  header(column);scooterCard(column);setupCard(column);navigationCard(column);musicCard(column);settingsCard(column);soundCard(column);logCard(column);infoCard(column);
   ConnectService.log("G3 Connect Android 1.1 geöffnet · Android "+Build.VERSION.RELEASE);
  }
 
@@ -136,6 +136,20 @@ public final class MainActivity extends Activity {
   manualStop=button("Manuelles Senden stoppen",DANGER_BUTTON,()->{ConnectService service=ConnectService.instance;if(service!=null)service.stopManual();});add(card,manualStop,8);
  }
 
+ // ── Musik am TFT ─────────────────────────────────────────
+ private void musicCard(LinearLayout column){
+  LinearLayout card=card(column);title(card,"Musik am TFT","Spotify · YouTube Music · andere Media-Apps");
+  musicTitle=text("Kein Titel erkannt",18,TEXT,Typeface.DEFAULT_BOLD);add(card,musicTitle,12);
+  musicArtist=text("Starte die Wiedergabe auf deinem Handy.",13.5f,MUTED,null);add(card,musicArtist,3);
+  musicModeSwitch=new Switch(this);musicModeSwitch.setText("Musik auf dem Rollerdisplay anzeigen");musicModeSwitch.setTextColor(TEXT);musicModeSwitch.setTextSize(TypedValue.COMPLEX_UNIT_SP,14.5f);musicModeSwitch.setChecked(ConnectService.musicMode);
+  musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService service=ConnectService.instance;if(service==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}service.setMusicMode(on);});add(card,musicModeSwitch,12);
+  LinearLayout controls=row(card,10);
+  musicPrevious=button("⏮",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("previous");});cell(controls,musicPrevious);
+  musicPlay=button("▶ / ⏸",PRIMARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("toggle");});cell(controls,musicPlay);
+  musicNext=button("⏭",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("next");});cell(controls,musicNext);
+  hint(card,"Aktiviere den Modus, um Titel und Interpret statt der Navigations-Straßentexte anzuzeigen. Die Pfeilnavigation pausiert dabei und kann danach wieder übernehmen.",10);
+  needsConnection.add(musicModeSwitch);needsConnection.add(musicPrevious);needsConnection.add(musicPlay);needsConnection.add(musicNext);
+ }
  // ── Einstellungen ────────────────────────────────────────
  private void settingsCard(LinearLayout column){
   LinearLayout card=card(column);title(card,"Roller-Einstellungen","Nur im Stillstand · jeder Wert wird zurückgelesen");
@@ -316,6 +330,11 @@ public final class MainActivity extends Activity {
   maneuver.setBackground(shape(live||ConnectService.manualActive?ACCENT:SURFACE2,18,live||ConnectService.manualActive?0:BORDER));
   int fg=live||ConnectService.manualActive?ON_ACCENT:TEXT;navMain.setTextColor(fg);navRoad.setTextColor(fg);navMeta.setTextColor(live||ConnectService.manualActive?ON_ACCENT:MUTED);navMeta.setAlpha(live?.85f:1f);
   manualState.setText(ConnectService.manualStatus);manualStop.setVisibility(ConnectService.manualActive?View.VISIBLE:View.GONE);
+  // Musik
+  if(musicModeSwitch.isChecked()!=ConnectService.musicMode){musicModeSwitch.setOnCheckedChangeListener(null);musicModeSwitch.setChecked(ConnectService.musicMode);musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService svc=ConnectService.instance;if(svc==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}svc.setMusicMode(on);});}
+  musicTitle.setText(MusicState.title.isEmpty()?"Kein Titel erkannt":MusicState.title);
+  musicArtist.setText(MusicState.artist.isEmpty()?(MapsState.listenerReady?"Warte auf Spotify / YouTube Music …":"Benachrichtigungszugriff erforderlich"):MusicState.artist);
+  musicPlay.setText(MusicState.playing()?"⏸ Pause":"▶ Wiedergabe");
   // Einstellungen
   for(View v:needsConnection)enable(v,connected);renderSound();
   for(View v:levels)enable(v,connected&&writable());for(View v:ranges)enable(v,connected&&writable());

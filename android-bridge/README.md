@@ -7,6 +7,7 @@ Version 1.1 · Android 8 or newer · APK: [`dist/g3-connect.apk`](../dist/g3-con
 ## Features
 
 - **Navigation:** reads the Google Maps notification on the phone and sends arrow, distance, street and remaining time to the display. Starts and stops automatically.
+- **Music display (experimental):** reads the active Android media session (Spotify, YouTube Music and compatible players), sends track title and artist to the two TFT navigation text fields, and provides previous / play-pause / next controls. Music mode temporarily takes over the navigation display; switch it off to resume Maps. Uses the existing notification-listener access; media metadata stays on-device.
 - **Manual sending:** send your own direction, street and distance to the display, once or every second, also without Maps.
 - **Settings:** acceleration in sport mode (level 1–3) and range display. Every value is read back.
 - **Custom sounds:**
@@ -25,6 +26,10 @@ Version 1.1 · Android 8 or newer · APK: [`dist/g3-connect.apk`](../dist/g3-con
 4. For navigation, leave Maps automation on ("Google Maps automatisch am G3 starten / beenden") and start a route in Google Maps. Wait for the first arrow before riding.
 
 Tip: exclude G3 Connect from battery optimisation so Android does not end the connection while riding.
+
+## Music display
+
+Connect the scooter, start playback in a media app, and enable **Music auf dem Rollerdisplay anzeigen** in the Android app. The media app must publish an Android media session and metadata; not every player does. The display text fields are limited to 39 UTF-8 bytes each, so long titles or artist names are shortened. Album artwork and physical scooter-button controls are not implemented. This feature is experimental until tested on the actual F3 Pro TFT.
 
 ## Good to know
 
