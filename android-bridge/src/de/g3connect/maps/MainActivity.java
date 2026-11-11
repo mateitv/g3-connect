@@ -331,7 +331,7 @@ public final class MainActivity extends Activity {
   int fg=live||ConnectService.manualActive?ON_ACCENT:TEXT;navMain.setTextColor(fg);navRoad.setTextColor(fg);navMeta.setTextColor(live||ConnectService.manualActive?ON_ACCENT:MUTED);navMeta.setAlpha(live?.85f:1f);
   manualState.setText(ConnectService.manualStatus);manualStop.setVisibility(ConnectService.manualActive?View.VISIBLE:View.GONE);
   // Musik
-  if(musicModeSwitch.isChecked()!=ConnectService.musicMode){musicModeSwitch.setOnCheckedChangeListener(null);musicModeSwitch.setChecked(ConnectService.musicMode);musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService service=ConnectService.instance;if(service==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}service.setMusicMode(on);});}
+  if(musicModeSwitch.isChecked()!=ConnectService.musicMode){musicModeSwitch.setOnCheckedChangeListener(null);musicModeSwitch.setChecked(ConnectService.musicMode);musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService svc=ConnectService.instance;if(svc==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}svc.setMusicMode(on);});}
   musicTitle.setText(MusicState.title.isEmpty()?"Kein Titel erkannt":MusicState.title);
   musicArtist.setText(MusicState.artist.isEmpty()?(MapsState.listenerReady?"Warte auf Spotify / YouTube Music …":"Benachrichtigungszugriff erforderlich"):MusicState.artist);
   musicPlay.setText(MusicState.playing()?"⏸ Pause":"▶ Wiedergabe");
