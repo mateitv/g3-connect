@@ -16,6 +16,7 @@ final class MusicState {
   MediaMetadata m=c.getMetadata();durationMs=m==null?0:Math.max(0,m.getLong(MediaMetadata.METADATA_KEY_DURATION));
   positionMs=p==null?-1:p.getPosition();positionUpdatedAt=p==null?0:p.getLastPositionUpdateTime();playbackSpeed=p==null?1f:p.getPlaybackSpeed();
  }
+ static boolean playing(){return playbackState==PlaybackState.STATE_PLAYING;}
  static void clear(){controller=null;title="";artist="";playbackState=PlaybackState.STATE_NONE;durationMs=0;positionMs=-1;positionUpdatedAt=0;playbackSpeed=1f;}
  static long positionNow(){
   return MusicProgress.position(positionMs,durationMs,playbackState,playbackSpeed,positionUpdatedAt,SystemClock.elapsedRealtime());
@@ -30,5 +31,5 @@ final class MusicState {
    else if(playing())controls.pause();else controls.play();
   }catch(RuntimeException e){ConnectService.log("Mediensteuerung fehlgeschlagen: "+e.getClass().getSimpleName());}
  }
-
+ private MusicState() {}
 }
