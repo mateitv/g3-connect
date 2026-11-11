@@ -9,7 +9,7 @@ diff --git a/app/src/main/java/dev/ichinomiya/ninebotenhance/notification/Dashbo
 @@ -90,1 +92,1 @@
 -        ride=null;Arrays.fill(shownUntil,0);musicKeyShown="";musicMovingShown=false;volumeSeq=-1;volumeShownAt=volumeShownUntil=-1;volumeFillAt=0;volumeFillFrom=volumeFillTo=0;revision++;
 +        ride=null;Arrays.fill(shownUntil,0);musicKeyShown="";musicMovingShown=false;musicTrackChangedAt=0;volumeSeq=-1;volumeShownAt=volumeShownUntil=-1;volumeFillAt=0;volumeFillFrom=volumeFillTo=0;revision++;
-@@ -128,8 +128,10 @@
+@@ -128,7 +128,9 @@
          // A track change or a play/pause change fires the matching triggers; a track appearing counts as both.
          if(activeMusic(nextMusic)){
              String key=musicKey(nextMusic);boolean moving=MusicPlayback.moving(nextMusic.getInt("state"));
