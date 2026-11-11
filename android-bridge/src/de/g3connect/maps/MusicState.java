@@ -18,10 +18,7 @@ final class MusicState {
  }
  static void clear(){controller=null;title="";artist="";playbackState=PlaybackState.STATE_NONE;durationMs=0;positionMs=-1;positionUpdatedAt=0;playbackSpeed=1f;}
  static long positionNow(){
-  long position=positionMs;if(position<0)return -1;
-  if(playing()&&positionUpdatedAt>0){long now=SystemClock.elapsedRealtime();if(now>positionUpdatedAt)position+=(long)((now-positionUpdatedAt)*Math.max(0f,playbackSpeed));}
-  position=Math.max(0,position);return durationMs>0?Math.min(durationMs,position):position;
+  return MusicProgress.position(positionMs,durationMs,playbackState,playbackSpeed,positionUpdatedAt,SystemClock.elapsedRealtime());
  }
- static String time(long millis){if(millis<0)return "--:--";long seconds=millis/1000;return (seconds/60)+":"+(seconds%60<10?"0":"")+(seconds%60);}
- static boolean playing(){return playbackState==PlaybackState.STATE_PLAYING;}
+ static String time(long millis){return MusicProgress.time(millis);}
 }
