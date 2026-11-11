@@ -179,6 +179,8 @@ public final class NativeTests {
  static void musicProgress(){
   check(MusicProgress.position(45000,180000,3,1f,10000,15000)==50000,"playing position advances on elapsed realtime");
   check(MusicProgress.position(45000,180000,2,1f,10000,15000)==45000,"paused position stays fixed");
+  check(MusicProgress.position(45000,180000,4,2f,10000,15000)==55000,"fast-forward position follows positive playback speed");
+  check(MusicProgress.position(45000,180000,5,-1f,10000,15000)==40000,"rewind position follows negative playback speed");
   check(MusicProgress.position(179000,180000,3,2f,10000,15000)==180000,"position clamps at track duration");
   check(MusicProgress.position(-1,180000,3,1f,10000,15000)==-1,"unknown position stays unknown");
   check(Math.abs(MusicProgress.fraction(90000,180000)-0.5f)<0.0001f,"progress fraction is half at midpoint");
