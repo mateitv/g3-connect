@@ -10,13 +10,13 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 /** User-started connected-device foreground service; stays active while Maps is in front. */
 public final class ConnectService extends Service {
- static volatile ConnectService instance;static volatile String status="Nicht verbunden.";static volatile boolean connected,armed=true,manualActive,musicMode;static volatile String manualStatus="Manuelles Senden aus.",deviceName="";
+ static volatile ConnectService instance;static volatile String status="Nicht verbunden.";static volatile boolean connected,armed=true,manualActive;static volatile String manualStatus="Manuelles Senden aus.",deviceName="";
  private static final StringBuilder LOG=new StringBuilder();
  static synchronized void log(String value){String clean=value.replaceAll("(?i)[0-9a-f]{32,}","[entfernt]");LOG.append(new SimpleDateFormat("HH:mm:ss.SSS",Locale.ROOT).format(new Date())).append(" ").append(clean).append('\n');if(LOG.length()>28000)LOG.delete(0,LOG.indexOf("\n",LOG.length()-24000)+1);}
  static synchronized String logs(){return LOG.toString();}
  static void arm(boolean value){if(armed==value)return;armed=value;log("Maps-Automatik "+(value?"ein":"aus"));ConnectService current=instance;if(value&&current!=null)current.useMaps();}
  private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor();private final Handler main=new Handler(Looper.getMainLooper());
- private volatile BleWire wire;private volatile NinebotClient client;private NavigationLoop navigation;private final ManualSender manual=new ManualSender();private volatile boolean closing;private boolean connecting,musicDisplayActive;private String lastMusicKey="";private long testUntil,wakeRenewAt;private String lastMapsStatus="";
+ private volatile BleWire wire;private volatile NinebotClient client;private NavigationLoop navigation;private final ManualSender manual=new ManualSender();private volatile boolean closing;private boolean connecting;private long testUntil,wakeRenewAt;private String lastMapsStatus="";
  private PowerManager.WakeLock wake;
  @Override public void onCreate(){super.onCreate();instance=this;NotificationManager manager=getSystemService(NotificationManager.class);manager.createNotificationChannel(new NotificationChannel("g3-connection","G3-Verbindung",NotificationManager.IMPORTANCE_LOW));
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
