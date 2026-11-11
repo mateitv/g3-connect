@@ -7,6 +7,7 @@ on:
       - feature/music-hud-prototype
     paths:
       - 'patches/NinebotEnhance-240x320-music-hud.patch'
+      - 'scripts/apply_ninebotenhance_music_hud.py'
       - '.github/workflows/ninebotenhance-patched-build.yml'
 
 permissions:
@@ -36,11 +37,9 @@ jobs:
           cache: gradle
           cache-dependency-path: NinebotEnhance/**/*.gradle*
 
-      - name: Verify and apply the F3 portrait music HUD patch
+      - name: Apply guarded F3 portrait music HUD source edits
         working-directory: NinebotEnhance
-        run: |
-          git apply --check ../g3-connect/patches/NinebotEnhance-240x320-music-hud.patch
-          git apply ../g3-connect/patches/NinebotEnhance-240x320-music-hud.patch
+        run: python3 ../g3-connect/scripts/apply_ninebotenhance_music_hud.py .
 
       - name: Build patched Android APK
         working-directory: NinebotEnhance
