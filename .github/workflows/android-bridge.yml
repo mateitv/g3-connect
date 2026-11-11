@@ -9,6 +9,9 @@ on:
     paths:
       - 'android-bridge/**'
       - '.github/workflows/android-bridge.yml'
+concurrency:
+  group: android-bridge-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
