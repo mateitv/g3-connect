@@ -13,6 +13,10 @@ The public `MacintoshKeyboardHacking/segMod` project explicitly says it was deve
 - The same header identifies a TFT navigation command family: `CMD_TFT_setNavi = 0x71`, with subcommands `0x00` start, `0x01` distance, `0x03` info, `0x10` road, `0x24` next road, `0x38` text, and `0xff` exit. It also identifies `TFT_SUBbase = 0xfe` for subscription-related traffic.
 - The source comments describe VCU-to-TFT (`0xfe`) realtime reports and parses subscription parameters. This is useful evidence about how the stock display receives data.
 
+### Public x3 debug trace found
+
+I also found `logs/BLEuart2-debugx-log.txt` in the segMod repository. It is a public BLE-module debug trace, not an Android `btsnoop_hci.log` and not a clean raw packet capture. It records repeated subscription events with source `0x16` (VCU), destination `0x23` (TFT), command `0x03`, index `0xfe`, and a 35-byte payload. It also records writes to display-related indexes such as `0x60`, `0x62`, and `0xd5`. The log contains no track title, artist, or music-metadata events. This gives us real x3 display-traffic evidence, but not the music command we need.
+
 ### Cross-check against a second G3 Connect implementation
 
 A separate public G3 Connect Android implementation also sends the `0x23 / 0x71` command family for navigation only: distance at index `0x01`, current/next road strings at `0x10` and `0x24`, and maneuver information at `0x03`. Its road-string encoder uses UTF-8, truncates safely to 39 bytes, and appends a NUL terminator. This is an independent implementation of the navigation channel, not a music HUD.
@@ -64,5 +68,6 @@ A real F3 capture would still be the strongest final verification, but this rese
 - `https://github.com/MacintoshKeyboardHacking/segMod` — explicitly developed on F3/GT3 and describes retaining the stock display.
 - `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/myBLE4/myBLEv4.ino` — UART routing, Ninebot frame parsing, checksum, VCU/TFT subscription handling.
 - `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/myBLE4/x3regs.h` — x3 board IDs and TFT navigation command/subcommand definitions.
+- `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/logs/BLEuart2-debugx-log.txt` — public BLE-module debug trace with VCU-to-TFT subscription events; not a phone HCI snoop capture.
 - `https://github.com/sfw9/g3-connect/blob/main/android-bridge/src/de/g3connect/maps/NinebotClient.java` and `NaviPacket.java` — independent implementation showing that the 0x71 family carries navigation guidance and UTF-8 road strings.
 - `https://nootnooot.codeberg.page/segway-ninebot-ble/` — phone-to-BLE-module framing and Encryption2 handshake.
