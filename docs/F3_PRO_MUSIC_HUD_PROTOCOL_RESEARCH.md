@@ -93,3 +93,14 @@ A real F3 capture would still be the strongest final verification, but this rese
 - `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/logs/BLEuart2-debugx-log.txt` — public BLE-module debug trace with VCU-to-TFT subscription events; not a phone HCI snoop capture.
 - `https://github.com/sfw9/g3-connect/blob/main/android-bridge/src/de/g3connect/maps/NinebotClient.java` and `NaviPacket.java` — independent implementation showing that the 0x71 family carries navigation guidance and UTF-8 road strings.
 - `https://nootnooot.codeberg.page/segway-ninebot-ble/` — phone-to-BLE-module framing and Encryption2 handshake.
+
+### Source-wide check of the BLE media command
+
+I fetched the complete current `myBLE4/myBLEv4.ino` and `myBLE4/x3regs.h` from the F3/x3 `segMod` source and searched both files for `CMD_BLE_mediaEnable`, `CMD_AUDIO_*`, and the TFT display/alert identifiers.
+
+Results:
+- `CMD_BLE_mediaEnable = 0x10` appears only as a constant definition in `x3regs.h`; there is no use of that constant in the complete `myBLEv4.ino` sketch. The public implementation therefore gives us no request frame, payload, response, or indication that this command is used to deliver live track metadata.
+- The three `CMD_AUDIO_*` definitions are explicitly commented as audio upload start, audio data chunk, and CRC verification. This reinforces that they are asset-transfer commands, not a documented live metadata channel.
+- `TFT_Display = 0x62` remains explicitly marked unknown, and `TFT_Alert = 0xd5` still has no payload definition. The main sketch's only matching TFT-subscription reference is a commented-out diagnostic line; it does not reveal a supported write interface.
+
+This narrows the next step: do not build a sender around `0x6f/0x10` or `0x23/0x62` based on names alone. The next useful evidence would be an implementation or trace that shows a real request/response and a TFT-side effect for a display-only music operation. Until then, the music-to-TFT transport remains unknown.
