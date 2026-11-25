@@ -66,6 +66,20 @@ def main():
     seen = set()
     functions = []
     literal_refs = set()
+    string_refs = set()
+    string_keywords = (b'update_display_content', b'write_cb tft', b'Display initialized', b'st7735', b'/dev/spi0', b'/dev/gpio', b'lvgl_view', b'lv_draw_label', b'bts_media_enable', b'ninebot_gatt_server', b'Uart dispatcher', b'ctrl_screen_backlight', b'is_tft_start', b'tft_upgrade_status')
+    def resolve_string(value):
+        for candidate_base in (args.base, 0x0C000000, 0x0C000400, 0x08000000, 0x10000000, 0x20000000, 0):
+            target_off = value - candidate_base
+            if 0 <= target_off < len(data):
+                end = data.find(b'\\x00', target_off, min(len(data), target_off + 256))
+                if end < 0:
+                    end = min(len(data), target_off + 256)
+                raw = data[target_off:end]
+                if len(raw) >= 4 and all(0x20 <= ch < 0x7f for ch in raw):
+                    if any(k.lower() in raw.lower() for k in string_keywords):
+                        return target_off, raw.decode('ascii', 'replace')
+        return None
     while queue and len(functions) < args.max_functions:
         addr = queue.popleft() & ~1
         off = addr - args.base
@@ -93,6 +107,22 @@ def main():
                         value = struct.unpack_from("<I", data, literal_off)[0]
                         if 0x40000000 <= value <= 0x6FFFFFFF or 0xE0000000 <= value <= 0xFFFFFFFF:
                             literal_refs.add((value, addr, ins.address))
+                        resolved = resolve_string(value)
+                        if resolved:
+                            string_refs.add((resolved[0], resolved[1], addr, ins.address))
+            if ins.mnemonic == "adr" and len(ins.operands) >= 2:
+                op = ins.operands[1]
+                if op.type == ARM_OP_IMM:
+                    target = ((ins.address + 4) & ~3) + op.imm
+                    resolved = resolve_string(target)
+                    if resolved:
+                        string_refs.add((resolved[0], resolved[1], addr, ins.address))
+            if ins.mnemonic == "add" and len(ins.operands) >= 3:
+                if ins.operands[1].type == ARM_OP_IMM and ins.operands[1].imm == ARM_REG_PC and ins.operands[2].type == ARM_OP_IMM:
+                    target = ((ins.address + 4) & ~3) + ins.operands[2].imm
+                    resolved = resolve_string(target)
+                    if resolved:
+                        string_refs.add((resolved[0], resolved[1], addr, ins.address))
 
     lines = [
         "# F3/F3 Pro BLE firmware disassembly triage",
@@ -143,6 +173,18 @@ def main():
         lines.extend(["", f"### MMIO-related function candidate 0x{addr:08X} (file offset 0x{off:X})"])
         for ins in insns[:80]:
             lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
+    lines.extend(["", "## Display/media string references", ""])
+    if string_refs:
+        for off, value, fn, insaddr in sorted(string_refs):
+            lines.append(f"- String at file offset 0x{off:X}: {value[:180]!r} — referenced at 0x{insaddr:08X} in function candidate 0x{fn:08X}")
+        selected_string_functions = {fn for _, _, fn, _ in string_refs}
+        for addr, off, insns in functions:
+            if addr in selected_string_functions:
+                lines.extend(["", f"### String-reference function 0x{addr:08X} (file offset 0x{off:X})"])
+                for ins in insns[:100]:
+                    lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
+    else:
+        lines.append("- No display/media strings resolved from the current reset/vector call graph.")
     lines.extend(["", "## Memory-mapped address references via PC-relative literal loads", ""])
     if literal_refs:
         for value, fn, insaddr in sorted(literal_refs):
