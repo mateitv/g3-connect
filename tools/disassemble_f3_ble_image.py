@@ -135,6 +135,14 @@ def main():
         lines.extend(["", f"### Function candidate 0x{addr:08X} (file offset 0x{off:X})"])
         for ins in insns[:32]:
             lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
+    lines.extend(["", "## Functions that reference peripheral/MMIO-like constants", ""])
+    relevant_functions = {fn for value, fn, _ in literal_refs if 0x40000000 <= value <= 0x6FFFFFFF or 0xE0000000 <= value <= 0xFFFFFFFF}
+    selected = [(addr, off, insns) for addr, off, insns in functions if addr in relevant_functions]
+    lines.append(f"- Functions with candidate MMIO references: {len(selected)}")
+    for addr, off, insns in selected[:40]:
+        lines.extend(["", f"### MMIO-related function candidate 0x{addr:08X} (file offset 0x{off:X})"])
+        for ins in insns[:80]:
+            lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
     lines.extend(["", "## Memory-mapped address references via PC-relative literal loads", ""])
     if literal_refs:
         for value, fn, insaddr in sorted(literal_refs):
