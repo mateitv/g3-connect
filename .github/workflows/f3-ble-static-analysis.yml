@@ -1,0 +1,38 @@
+name: F3 BLE firmware static analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/music-hud-prototype]
+    paths:
+      - 'tools/analyze_f3_ble_firmware.py'
+      - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
+      - '.github/workflows/f3-ble-static-analysis.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-stock-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download public stock F3/F3 Pro BLE 0.4.0 package
+        run: |
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/Rexzy67/X3-Firmware/main/F3-F3PRO/Stock/BLE/0.4.0.zip' \
+            --output f3_ble_0.4.0.zip
+          sha256sum f3_ble_0.4.0.zip
+      - name: Static triage (offline, read-only)
+        run: |
+          python3 tools/analyze_f3_ble_firmware.py f3_ble_0.4.0.zip --out f3-ble-static-report.md
+          mkdir -p analysis-output
+          cp f3-ble-static-report.md analysis-output/
+          cp f3_ble_0.4.0.zip analysis-output/
+      - name: Upload inspection report and source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: f3-pro-stock-ble-0.4.0-static-analysis
+          path: analysis-output/
+          if-no-files-found: error
+          retention-days: 14
