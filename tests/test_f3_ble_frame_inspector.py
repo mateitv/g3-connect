@@ -1,11 +1,13 @@
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 MODULE = Path(__file__).parents[1] / "tools" / "f3_ble_frame_inspector.py"
 SPEC = importlib.util.spec_from_file_location("f3_ble_frame_inspector", MODULE)
 mod = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
+sys.modules[SPEC.name] = mod
 SPEC.loader.exec_module(mod)
 
 class FrameInspectorTests(unittest.TestCase):
@@ -22,7 +24,7 @@ class FrameInspectorTests(unittest.TestCase):
         self.assertTrue(frame.checksum_status.startswith("MATCH"))
 
     def test_does_not_decode_unframed_data(self):
-        self.assertEqual(mod.parse_frames(b"\\x01\\x02\\x03"), [])
+        self.assertEqual(mod.parse_frames(bytes([1, 2, 3])), [])
 
 if __name__ == "__main__":
     unittest.main()
