@@ -289,3 +289,27 @@ The disassembly call-graph sweep found a small family of message builders that c
 This confirms that `0xD5` is used in a structured message path, consistent with the public `TFT_Alert = 0xD5` lead. It does **not** reveal a free-form text payload: the observed builder copies fixed-size state data and appends byte fields. We have not identified the receiving UI handler or proven that this message is phone-addressable. It must not be used as a guessed music-text packet.
 
 The `0x71` constant also appears in a separate dispatch candidate, consistent with the already documented navigation-message family. The `0x62` occurrence found in the broader code graph appears in a generic state/property comparison and is not enough to establish a text-display command.
+
+
+### Follow-up: media API cluster and AVRCP metadata boundary
+
+A second inspection of the downloaded decrypted 0.4.0 image extracted the full printable-string neighborhood around the Bluetooth symbols. The cluster is stronger evidence of a **remote-control surface** than of a metadata-display surface:
+
+| Firmware string | What it safely indicates |
+|---|---|
+| `bts_media_enable` | Media feature enable/disable operation |
+| `bts_media_play`, `bts_media_next_song`, `bts_media_previous_song` | Playback-control operations |
+| `bts_media_vol_up`, `bts_media_vol_down` | Volume-control operations |
+| `bts_media_status_change_notify` | A media-status notification path; payload meaning is not established |
+| `bts_avrcp_controller_nextsong`, `bts_avrcp_controller_presong` | AVRCP controller track-skip functions |
+| `bts_media_connect`, `bts_media_connect_status_change_notify` | Media connection lifecycle |
+| `btapp_navi_data_received` | A separate navigation-data callback name; no evidence it is a music metadata route |
+
+Associated log strings include media-enable completion, MEDIA_PLAY/MEDIA_PAUSE and media-status-change diagnostics. This cluster is consistent with AVRCP transport/control support. It does **not** prove that the firmware requests or receives AVRCP GetElementAttributes metadata, or that metadata is handed to LVGL.
+
+The Bluetooth SIG AVRCP specification defines media attribute IDs for title (0x01), artist (0x02), album (0x03), track number (0x04), total tracks (0x05), genre (0x06), and playing time (0x07). See the [AVRCP 1.6.3 specification, Appendix E](https://files.bluetooth.com/wp-content/uploads/dlm_uploads/2024/10/AVRCP_v1.6.3.pdf) and [Bluetooth Assigned Numbers, AVRCP media attributes](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf). None of those attribute names appeared in the firmware's printable-string scan. That is only a negative string-search result: an implementation can use numeric IDs, generic callbacks, or binary tables without those words.
+
+A raw pointer-value scan of the candidate string addresses also found no direct 32-bit absolute pointers. Combined with the previous heuristic Thumb scan, this means the current string-xref method is not sufficient to identify callers. The firmware contains a `RAW4TFT` header, vector table at file offset `0x400`, initial stack pointer `0x20080000`, and reset vector `0x0C028571`; however, the whole-image sweep indiscriminately decodes data as instructions and its few hits cannot be treated as validated call references.
+
+**Current conclusion:** stock BLE 0.4.0 clearly has a display stack and Bluetooth media-control functions. The existence of a metadata-to-display path remains unproven. The next decisive task is to recover the firmware's actual section/function boundaries and follow the AVRCP media-status callback and UART dispatcher into the LVGL update task. Do not send guessed UART/GATT messages or patch/flash the stock image.
+
