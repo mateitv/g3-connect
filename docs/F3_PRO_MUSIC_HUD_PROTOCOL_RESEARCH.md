@@ -277,3 +277,15 @@ The updated whole-image Thumb string-xref scan resolved only three references, a
 The xref resolver was improved to accept pointers into the middle of candidate strings (commit `c4957694b76c8ccf7a21ed789f4917337fd16aee`). CI run `45578654164` completed successfully and produced artifact `15005118300`.
 
 **Next reverse-engineering task:** establish the actual image memory/section mapping and recover references to the UART dispatcher and display update routine using a proper ARM/Thumb-aware function-boundary and data-reference analysis. In parallel, trace whether the AVRCP media-control cluster ever forwards metadata to an application/UI callback. Until that bridge is proven, do not implement or transmit a guessed TFT packet.
+
+### Additional command-dispatch finding: structured 0xD5/0xD7 messages
+
+The disassembly call-graph sweep found a small family of message builders that construct packets and pass them to a common transport helper:
+- One builder creates a `0xD4` record with a 9-byte sub-payload and sends a 12-byte packet.
+- Another creates a `0xD5` record with subcommand/length byte `0x0B`, copies an 8-byte block from a state structure, appends two one-byte fields, and sends a 13-byte packet.
+- A third creates a `0xD7` record with a 10-byte sub-payload and sends a 12-byte packet.
+- All three use the same internal send helper at `0x0C05755C`.
+
+This confirms that `0xD5` is used in a structured message path, consistent with the public `TFT_Alert = 0xD5` lead. It does **not** reveal a free-form text payload: the observed builder copies fixed-size state data and appends byte fields. We have not identified the receiving UI handler or proven that this message is phone-addressable. It must not be used as a guessed music-text packet.
+
+The `0x71` constant also appears in a separate dispatch candidate, consistent with the already documented navigation-message family. The `0x62` occurrence found in the broader code graph appears in a generic state/property comparison and is not enough to establish a text-display command.
