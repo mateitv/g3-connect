@@ -192,15 +192,16 @@ New read-only tooling committed:
 
 The next reverse-engineering target is the decrypted BLE image's startup path, interrupt vectors, peripheral setup, and references to SPI/display buffers. We must identify the renderer and its message ingress before designing a music metadata packet. The known navigation `0x71` and telemetry `0xFE` channels remain excluded.
 
-### Address-map correction after vector-table cross-check
+### Address-map status: header/vector offset distinguished from load base
 
-A first-pass mapping treated the vector table's file offset `0x400` as if it were part of the mapped address base. Comparing several vector targets against the bytes at both candidate offsets showed that this was off by `0x400`. The better-supported mapping is:
-- The image header occupies the first `0x400` bytes.
-- The vector table begins at file offset `0x400` and maps at `0x0C000400`.
-- Reset vector `0x0C028571` therefore maps to file offset `0x28170` (not `0x28570`).
-- Other vector targets also land on more plausible Thumb function entries with this mapping.
+The image header contains a `0x400` field, and the initial stack/reset-vector pair is at file offset `0x400`. A previous pass treated `0x0C000400` as the load base because that offset made several vector targets land on clean-looking function prologues. That was only a heuristic and was not enough to establish the mapping. It is superseded.
 
-The disassembler default base has been corrected to `0x0C000400`. The previous base/offset figures above are superseded. This is a static mapping inference, to be checked against the full vector table and startup code before assigning MCU identity or peripheral addresses.
+The current working interpretation is:
+- File offset `0x400` is the vector-table location.
+- The secure flash alias/load base is provisionally `0x0C000000`.
+- Reset vector `0x0C028571` therefore maps provisionally to file offset `0x28570`.
+
+The disassembler default has been returned to `0x0C000000`. The first halfword at the reset target is not decoded by the current Capstone/LLVM builds, so the reset-entry interpretation is still unresolved. Do not treat either candidate mapping as final until it is cross-checked against more reset/startup evidence and the hardware memory map.
 
 ### Additional firmware disassembly findings and mapping caution
 
