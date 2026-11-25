@@ -8,6 +8,7 @@ on:
       - 'tools/analyze_f3_ble_firmware.py'
       - 'tools/decrypt_ninebot_x3_package.py'
       - 'tools/disassemble_f3_ble_image.py'
+      - 'tools/find_f3_ble_string_xrefs.py'
       - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
       - '.github/workflows/f3-ble-static-analysis.yml'
   pull_request:
@@ -42,11 +43,12 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check capstone==5.0.6
           python3 tools/disassemble_f3_ble_image.py f3_ble_decrypted.bin --out f3-ble-disassembly.md
+          python3 tools/find_f3_ble_string_xrefs.py f3_ble_decrypted.bin --out f3-ble-string-xrefs.md
       - name: Static package triage
         run: |
           python3 tools/analyze_f3_ble_firmware.py f3_ble_0.4.0.zip --out f3-ble-static-report.md
           mkdir -p analysis-output
-          cp f3-ble-static-report.md f3-ble-disassembly.md f3_ble_decrypted.bin analysis-output/
+          cp f3-ble-static-report.md f3-ble-disassembly.md f3-ble-string-xrefs.md f3_ble_decrypted.bin analysis-output/
           cp f3_ble_0.4.0.zip analysis-output/
       - name: Upload inspection report and decrypted stock image
         uses: actions/upload-artifact@v4
