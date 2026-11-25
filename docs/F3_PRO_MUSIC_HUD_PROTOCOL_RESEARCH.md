@@ -212,3 +212,44 @@ The code also references peripheral address `0x40002000`. Its register access pa
 A useful false-positive was eliminated: `0x42544400` is in the Cortex-M peripheral bit-band alias region, so it is not evidence of a TFT controller register block. The function that references it appears to manipulate bit-band state, not draw pixels.
 
 The 0x400 header field and the vector-table position must not be conflated with the code load base. The disassembler now defaults to the secure flash alias base `0x0C000000`, while retaining the `0x400` vector-table file offset. This mapping remains a working hypothesis until the reset handler and additional vector targets are reconciled conclusively.
+
+### Stock BLE firmware UI and media capabilities: verified string evidence
+
+A scan of the successfully decrypted image found the following literal strings (file offsets shown in hex):
+
+**Display/rendering stack**
+- `0x0F0724`: `lvgl_view` (LVGL task/view name)
+- `0x198830`: `Display initialized.`
+- `0x1A94C4`: `st7735 Can't open /dev/gpio`
+- `0x1A9B04`: `/dev/spi0`
+- `0x1AD738`: `st7735_test`, with options to initialize the display and cycle display colours
+- `0x1B2D6C`: `NOTICE:write_cb tft not ready !!`
+- The image also contains LVGL drawing, font, image, canvas, PNG, GIF and LZO implementation strings, including source paths under `lvgl_lib/lvgl`.
+
+This confirms the stock BLE image includes an LVGL UI stack and an ST7735 SPI display driver. The screen is not simply a passive text display; the firmware owns the renderer.
+
+**Display data model / UI properties**
+- `0x1A9538`: `navi_info`
+- `0x1A961C`: `is_tft_start`
+- `0x1A99CC`: `tft_upgrade_status`
+- `0x1A9780`: `bt_music_connect_status`
+- `0x1B27D4`: `DEBUG:update_display_content :%d %d`
+- Nearby property names include `odo_or_trip`, `parking_state`, `tcs_onoff`, `ctl_headlight`, `ctl_turn_light`, `battery_total_sh`, and multiple riding-assistance states.
+
+**Bluetooth media support**
+- The image includes names for `bts_media_enable`, `bts_media_status_change_notify`, `bts_media_next_song`, `bts_media_previous_song`, `bts_media_play`, volume up/down, and AVRCP controller next/previous functions.
+- Logs mention media enable/disable, media connection status, play/pause, previous song, next song, and media-control completion.
+- UI resources include `popup_2lines_title_media_Misans_semibold_20_text` and the text `Media bluetooth paired`.
+
+This is real media-control support, but it does **not** prove that the stock TFT receives or renders track title, artist, album, or playback progress. In the printable strings found so far, there are no clear song-title/artist/album/duration/progress labels or an obvious now-playing widget. The media UI evidence currently points to Bluetooth pairing/control status, not a complete music player HUD.
+
+**UART/display transfer**
+- Strings identify a UART dispatcher, UART channels, a `uart_process_task`, and a `write_cb` for the TFT.
+- The dispatcher logs include source ID, destination ID, command and channel fields.
+- No direct string cross-reference was recovered by the current ADR, MOVW/MOVT, and PC-relative LDR sweep. The firmware appears to use a nontrivial logging/symbol/resource layout, so the next step is to recover the dispatcher and its command table from control flow, not to guess command IDs.
+
+### Consequence for the prototype
+
+The original TFT has a real graphics stack, and the firmware has Bluetooth media-control functions. That is an encouraging hardware/software capability finding, but it is not yet a supported phone-to-TFT metadata path. The known navigation `0x71` and packed telemetry `0xFE` channels remain excluded. No guessed `0x62`, `0xD5`, or other undocumented payload will be sent.
+
+A gold *phone-side* preview already exists and was verified with Spotify/YouTube Music metadata and playback progress. A gold *physical TFT* prototype is not ready: it requires either a documented stock-firmware command that safely updates a dedicated media UI, or a firmware-side change. The latter would violate the current no-flashing constraint, so it is not being treated as an acceptable test route.
