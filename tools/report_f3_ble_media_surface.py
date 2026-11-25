@@ -41,7 +41,7 @@ METADATA_TERMS = (
 
 
 def extract_strings(data: bytes, minimum: int = 5):
-    pattern = rb"[\\x20-\\x7e]{" + str(minimum).encode() + rb",}"
+    pattern = rb"[\x20-\x7e]{%d,}" % minimum
     return [(m.start(), m.group().decode("ascii", "replace"))
             for m in re.finditer(pattern, data)]
 
@@ -58,7 +58,7 @@ def main() -> None:
     print(f"Image bytes: {len(data):,}")
     print("Inventory only: string presence does not establish runtime behavior.")
     for group, needles in GROUPS.items():
-        print(f"\\n[{group}]")
+        print(f"\n[{group}]")
         found = 0
         for offset, value, folded in lower:
             if any(needle.decode().lower() in folded for needle in needles):
@@ -67,7 +67,7 @@ def main() -> None:
         if not found:
             print("(none)")
 
-    print("\\n[metadata_keyword_scan]")
+    print("\n[metadata_keyword_scan]")
     for term in METADATA_TERMS:
         hits = [(offset, value) for offset, value, folded in lower
                 if term.decode() in folded]
