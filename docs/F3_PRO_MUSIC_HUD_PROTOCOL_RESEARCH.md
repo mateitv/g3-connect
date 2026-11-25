@@ -121,3 +121,32 @@ Sources inspected:
 - `myBLE4/myBLEv4.ino`: `subMap()`, `subSet()`, `doRXdecode()`, and the main packet-forwarding loop around the `0x23 / 0xfe` handler.
 - `myBLE4/x3regs.h`: `ECU_TFT`, `TFT_SUBbase`, subscription ID definitions, and the `bSub` subscription request.
 - `logs/BLEuart2-debugx-log.txt`: repeated `on_pub_sub` events with the VCU-to-TFT address/command/index tuple.
+
+### New source lead: open X3 VCU implementation (F3 build included)
+
+I found and inspected the public `hp197/x3-vcu-fw` source. Its README explicitly provides build targets for `gt3`, `zt3`, and `f3`, and documents the VCU's USART link to the BLE/dashboard module. This is substantially more useful than a generic legacy Ninebot protocol reference because it is written for the X3 platform.
+
+What its code establishes:
+- The VCU's USART2 link to the BLE/dashboard node uses Ninebot `5A A5` frames at 115200 baud. The VCU address is `0x16`; the BLE/dashboard app node is `0x23`.
+- The app-node handler supports configuration-register reads/writes, registration/OTA operations, and a few explicit state notifications. It does not expose an arbitrary TFT drawing API.
+- A separate control-node command (`cmd 0x04, arg 0x20`) updates the VCU's display/ride-mode gesture state. The source does not describe this as a text or media-display command.
+- The documented app-node `cmd 0x03, arg 0xD2` writes a distance-related state value; it is not a free-form string channel.
+- The source's own scope places display and Bluetooth functions in the BLE module. It implements the VCU side of that link, not the BLE module's TFT rendering engine.
+
+Important distinction: this is an independent, open-source VCU firmware implementation for the X3 platform, not Segway's original proprietary BLE/display source. It can tell us what the VCU side of the F3 link expects and emits, but it cannot reveal the original TFT renderer or prove that an undocumented display command exists.
+
+Sources:
+- `hp197/x3-vcu-fw` README: F3 build target and VCU/BLE link architecture.
+- `include/usart.h`: 5A A5 framing, 115200 baud, VCU/BLE node addresses.
+- `include/ninebot.h` and `src/ninebot.c`: app-node and control-node command handlers.
+- Repository: https://github.com/hp197/x3-vcu-fw
+
+### Current conclusion and next research target
+
+The evidence now covers both sides of the *known* VCU/TFT telemetry path:
+1. `0x23 / 0xFE` is packed VCU-to-TFT subscription telemetry.
+2. `0x23 / 0x71` is the navigation-message family.
+3. The open X3 VCU implementation exposes app/configuration and control messages, but no arbitrary text/card renderer.
+4. The phone-side Segway 6.10.13 package contains an EasyConnect/Carbit automotive HUD integration, but that is not evidence of a scooter TFT music channel.
+
+The missing component is specifically the F3 BLE module's display firmware / TFT rendering implementation. ScooterHacking announced on 15 November 2026 that its X3 SHFW effort includes a completely rewritten BLE/display firmware for F3/F3 Pro, with a public beta targeted before the end of 2026. That source or its release may become the first credible route to a real custom TFT renderer. This is a research lead only; no firmware installation or flashing is being proposed.
