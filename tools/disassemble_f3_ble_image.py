@@ -67,6 +67,7 @@ def main():
     functions = []
     literal_refs = set()
     string_refs = set()
+    command_refs = set()
     string_keywords = (b'update_display_content', b'write_cb tft', b'Display initialized', b'st7735', b'/dev/spi0', b'/dev/gpio', b'lvgl_view', b'lv_draw_label', b'bts_media_enable', b'ninebot_gatt_server', b'Uart dispatcher', b'ctrl_screen_backlight', b'is_tft_start', b'tft_upgrade_status')
     def resolve_string(value):
         for candidate_base in (args.base, 0x0C000000, 0x0C000400, 0x08000000, 0x10000000, 0x20000000, 0):
@@ -103,6 +104,12 @@ def main():
                     if resolved:
                         string_refs.add((resolved[0], resolved[1], addr, ins.address))
         for ins in valid:
+            if ins.mnemonic in ("cmp", "tst", "movs", "subs", "adds"):
+                for operand in ins.operands:
+                    if operand.type == ARM_OP_IMM and operand.imm in (0x04, 0x23, 0x5A, 0x62, 0x6F, 0x71, 0xA5, 0xD5, 0xFE):
+                        command_refs.add((operand.imm, addr, ins.address, ins.mnemonic))
+            if ins.mnemonic in ("tbb", "tbh"):
+                command_refs.add((-1, addr, ins.address, ins.mnemonic))
             if ins.mnemonic.startswith("bl"):
                 for op in ins.operands:
                     if op.type == ARM_OP_IMM:
@@ -184,6 +191,19 @@ def main():
         lines.extend(["", f"### MMIO-related function candidate 0x{addr:08X} (file offset 0x{off:X})"])
         for ins in insns[:80]:
             lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
+    lines.extend(["", "## Protocol-dispatch / command-constant candidates", ""])
+    if command_refs:
+        for value, fn, insaddr, mnemonic in sorted(command_refs, key=lambda x: (x[1], x[2])):
+            label = "TBB/TBH jump-table instruction" if value < 0 else f"immediate 0x{value:02X}"
+            lines.append(f"- {label}: {mnemonic} at 0x{insaddr:08X} in function candidate 0x{fn:08X}")
+        candidate_functions = {fn for _, fn, _, _ in command_refs}
+        for addr, off, insns in functions:
+            if addr in candidate_functions:
+                lines.extend(["", f"### Command-constant function candidate 0x{addr:08X} (file offset 0x{off:X})"])
+                for ins in insns[:120]:
+                    lines.append(f"0x{ins.address:08X}: {ins.mnemonic:8} {ins.op_str}")
+    else:
+        lines.append("- No matching command constants found in sampled call graph.")
     lines.extend(["", "## Display/media string references", ""])
     if string_refs:
         for off, value, fn, insaddr in sorted(string_refs):
