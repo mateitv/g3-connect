@@ -30,7 +30,7 @@ public final class MainActivity extends Activity {
  private static final int OFFLINE=0,CONNECTING=1,PAIRING=2,CONNECTED=3,NAVIGATING=4,FAILED=5;
  private int BG,SURFACE,SURFACE2,BORDER,BORDER_STRONG,TEXT,MUTED,ACCENT,ACCENT_STRONG,ACCENT_SOFT,ON_ACCENT,DANGER,DANGER_SOFT,SUCCESS,SUCCESS_SOFT,WARN,WARN_SOFT,LOG_BG,LOG_TEXT;
  private boolean night;
- private TextView keyButton,chip,statusTitle,statusDetail,primary,search,repair,scanLabel,setupSummary,navMain,navRoad,navMeta,manualState,manualStop,settingsInfo,logView,logToggle,musicTitle,musicArtist,musicPlay,musicPrevious,musicNext; private Switch musicModeSwitch;
+ private TextView keyButton,chip,statusTitle,statusDetail,primary,search,repair,scanLabel,setupSummary,navMain,navRoad,navMeta,manualState,manualStop,settingsInfo,logView,logToggle,musicTitle,musicArtist,musicPlay,musicPrevious,musicNext; private Switch musicModeSwitch; private MusicHudPreview musicPreview; private boolean musicPreviewEnabled=true;
  private LinearLayout statusBox,secondaryRow,devices,scanRow,maneuver,setupBody;private TurnIcon turn;private Switch automatic;
  private final TextView[] levels=new TextView[3],ranges=new TextView[2];private final List<View> needsConnection=new ArrayList<>();
  private Step bluetoothStep,listenerStep,batteryStep;private boolean logExpanded,wasConnected;private String shownLog="";private int primaryMode;
@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
   TextView t=text("Einrichtung",18,TEXT,Typeface.DEFAULT_BOLD);head.addView(t,new LinearLayout.LayoutParams(0,-2,1));setupSummary=text("",13,MUTED,medium());head.addView(setupSummary);
   setupBody=vertical();add(card,setupBody,6);
   bluetoothStep=step(setupBody,"1","Bluetooth-Berechtigung","Zum Suchen und Verbinden des Rollers.","Erlauben",this::permissions);
-  listenerStep=step(setupBody,"2","Benachrichtigungszugriff","Damit G3 Connect die Google-Maps-Hinweise lesen kann.","Öffnen",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+  listenerStep=step(setupBody,"2","Benachrichtigungszugriff","Für Google-Maps-Hinweise und Spotify / YouTube-Music-Metadaten.","Öffnen",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
   batteryStep=step(setupBody,"3","Akkuoptimierung aus · empfohlen","Verhindert, dass Android die Verbindung unterwegs beendet.","Öffnen",()->{try{startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));}catch(Exception e){notice("Einstellung nicht verfügbar.");}});
   hint(card,"Benachrichtigungszugriff unter Android 13+ gesperrt? In den App-Infos von G3 Connect „Eingeschränkte Einstellungen zulassen“.",10);
  }
@@ -138,17 +138,18 @@ public final class MainActivity extends Activity {
 
  // ── Musik am TFT ─────────────────────────────────────────
  private void musicCard(LinearLayout column){
-  LinearLayout card=card(column);title(card,"Musik am TFT","Spotify · YouTube Music · andere Media-Apps");
+  LinearLayout card=card(column);title(card,"Musik-HUD Prototyp","240 × 320 TFT-Layout · Spotify · YouTube Music");
   musicTitle=text("Kein Titel erkannt",18,TEXT,Typeface.DEFAULT_BOLD);add(card,musicTitle,12);
   musicArtist=text("Starte die Wiedergabe auf deinem Handy.",13.5f,MUTED,null);add(card,musicArtist,3);
-  musicModeSwitch=new Switch(this);musicModeSwitch.setText("Musik auf dem Rollerdisplay anzeigen");musicModeSwitch.setTextColor(TEXT);musicModeSwitch.setTextSize(TypedValue.COMPLEX_UNIT_SP,14.5f);musicModeSwitch.setChecked(ConnectService.musicMode);
-  musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService service=ConnectService.instance;if(service==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}service.setMusicMode(on);});add(card,musicModeSwitch,12);
+  musicPreview=new MusicHudPreview(this);musicPreview.setVisibility(View.VISIBLE);LinearLayout.LayoutParams previewParams=new LinearLayout.LayoutParams(-1,dp(480));previewParams.topMargin=dp(12);card.addView(musicPreview,previewParams);
+  musicModeSwitch=new Switch(this);musicModeSwitch.setText("HUD-Vorschau auf dem Handy anzeigen");musicModeSwitch.setTextColor(TEXT);musicModeSwitch.setTextSize(TypedValue.COMPLEX_UNIT_SP,14.5f);musicModeSwitch.setChecked(musicPreviewEnabled);
+  musicModeSwitch.setOnCheckedChangeListener((v,on)->{musicPreviewEnabled=on;musicPreview.setVisibility(on?View.VISIBLE:View.GONE);});add(card,musicModeSwitch,12);
   LinearLayout controls=row(card,10);
-  musicPrevious=button("⏮",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("previous");});cell(controls,musicPrevious);
-  musicPlay=button("▶ / ⏸",PRIMARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("toggle");});cell(controls,musicPlay);
-  musicNext=button("⏭",SECONDARY,()->{ConnectService service=ConnectService.instance;if(service!=null)service.musicAction("next");});cell(controls,musicNext);
-  hint(card,"Aktiviere den Modus, um Titel und Interpret statt der Navigations-Straßentexte anzuzeigen. Die Pfeilnavigation pausiert dabei und kann danach wieder übernehmen.",10);
-  needsConnection.add(musicModeSwitch);needsConnection.add(musicPrevious);needsConnection.add(musicPlay);needsConnection.add(musicNext);
+  musicPrevious=button("⏮",SECONDARY,()->MusicState.action("previous"));cell(controls,musicPrevious);
+  musicPlay=button("▶ / ⏸",PRIMARY,()->MusicState.action("toggle"));cell(controls,musicPlay);
+  musicNext=button("⏭",SECONDARY,()->MusicState.action("next"));cell(controls,musicNext);
+  hint(card,"Echte Live-Vorschau mit Titel, Interpret und Fortschrittsbalken. Sie schreibt ausdrücklich nichts in die Navigationsfelder des Rollers; die TFT-Projektion wird separat weiter untersucht.",10);
+
  }
  // ── Einstellungen ────────────────────────────────────────
  private void settingsCard(LinearLayout column){
@@ -330,11 +331,12 @@ public final class MainActivity extends Activity {
   maneuver.setBackground(shape(live||ConnectService.manualActive?ACCENT:SURFACE2,18,live||ConnectService.manualActive?0:BORDER));
   int fg=live||ConnectService.manualActive?ON_ACCENT:TEXT;navMain.setTextColor(fg);navRoad.setTextColor(fg);navMeta.setTextColor(live||ConnectService.manualActive?ON_ACCENT:MUTED);navMeta.setAlpha(live?.85f:1f);
   manualState.setText(ConnectService.manualStatus);manualStop.setVisibility(ConnectService.manualActive?View.VISIBLE:View.GONE);
-  // Musik
-  if(musicModeSwitch.isChecked()!=ConnectService.musicMode){musicModeSwitch.setOnCheckedChangeListener(null);musicModeSwitch.setChecked(ConnectService.musicMode);musicModeSwitch.setOnCheckedChangeListener((v,on)->{ConnectService svc=ConnectService.instance;if(svc==null||!ConnectService.connected){musicModeSwitch.setChecked(false);notice("Zuerst mit dem Roller verbinden.");return;}svc.setMusicMode(on);});}
+  // Musik: live metadata and playback position feed the phone-side TFT layout prototype.
   musicTitle.setText(MusicState.title.isEmpty()?"Kein Titel erkannt":MusicState.title);
   musicArtist.setText(MusicState.artist.isEmpty()?(MapsState.listenerReady?"Warte auf Spotify / YouTube Music …":"Benachrichtigungszugriff erforderlich"):MusicState.artist);
   musicPlay.setText(MusicState.playing()?"⏸ Pause":"▶ Wiedergabe");
+  musicPreview.setVisibility(musicPreviewEnabled?View.VISIBLE:View.GONE);
+  if(musicPreviewEnabled)musicPreview.invalidate();
   // Einstellungen
   for(View v:needsConnection)enable(v,connected);renderSound();
   for(View v:levels)enable(v,connected&&writable());for(View v:ranges)enable(v,connected&&writable());

@@ -1,0 +1,61 @@
+name: F3 BLE firmware static analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/music-hud-prototype]
+    paths:
+      - 'tools/analyze_f3_ble_firmware.py'
+      - 'tools/decrypt_ninebot_x3_package.py'
+      - 'tools/disassemble_f3_ble_image.py'
+      - 'tools/trace_f3_ble_reachable.py'
+      - 'tools/find_f3_ble_string_xrefs.py'
+      - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
+      - '.github/workflows/f3-ble-static-analysis.yml'
+  pull_request:
+    paths:
+      - 'tools/analyze_f3_ble_firmware.py'
+      - 'tools/decrypt_ninebot_x3_package.py'
+      - 'tools/disassemble_f3_ble_image.py'
+      - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
+      - '.github/workflows/f3-ble-static-analysis.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-stock-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download public stock F3/F3 Pro BLE 0.4.0 package
+        run: |
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/Rexzy67/X3-Firmware/main/F3-F3PRO/Stock/BLE/0.4.0.zip' \
+            --output f3_ble_0.4.0.zip
+          sha256sum f3_ble_0.4.0.zip
+      - name: Verify and decrypt NinebotTEA package
+        run: |
+          python3 tools/decrypt_ninebot_x3_package.py f3_ble_0.4.0.zip --out f3_ble_decrypted.bin
+      - name: Disassemble firmware entry points
+        run: |
+          python -m pip install --disable-pip-version-check capstone==5.0.6
+          python3 tools/disassemble_f3_ble_image.py f3_ble_decrypted.bin --out f3-ble-disassembly.md
+          python3 tools/find_f3_ble_string_xrefs.py f3_ble_decrypted.bin --out f3-ble-string-xrefs.md
+          python3 tools/trace_f3_ble_reachable.py f3_ble_decrypted.bin --out f3-ble-reachable-trace.md
+      - name: Static package triage
+        run: |
+          python3 tools/analyze_f3_ble_firmware.py f3_ble_0.4.0.zip --out f3-ble-static-report.md
+          mkdir -p analysis-output
+          cp f3-ble-static-report.md f3-ble-disassembly.md f3-ble-string-xrefs.md f3-ble-reachable-trace.md f3_ble_decrypted.bin analysis-output/
+          cp f3_ble_0.4.0.zip analysis-output/
+      - name: Upload inspection report and decrypted stock image
+        uses: actions/upload-artifact@v4
+        with:
+          name: f3-pro-stock-ble-0.4.0-static-analysis
+          path: analysis-output/
+          if-no-files-found: error
+          retention-days: 14
