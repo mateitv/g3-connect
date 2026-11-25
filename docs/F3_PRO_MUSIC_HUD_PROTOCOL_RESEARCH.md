@@ -201,3 +201,13 @@ A first-pass mapping treated the vector table's file offset `0x400` as if it wer
 - Other vector targets also land on more plausible Thumb function entries with this mapping.
 
 The disassembler default base has been corrected to `0x0C000400`. The previous base/offset figures above are superseded. This is a static mapping inference, to be checked against the full vector table and startup code before assigning MCU identity or peripheral addresses.
+
+### Additional firmware disassembly findings and mapping caution
+
+The decrypted image's vector table contains 14 distinct in-image Thumb targets. Several targets decode as ARMv8-M TrustZone-style entry/exit code, including `BXNS`/`BLXNS` instructions. Other code uses `MSPLIM`, `BASEPRI`, and FPU register-save instructions. This points to a TrustZone-capable M-profile MCU with floating-point support; it is not enough by itself to name the exact chip.
+
+The code also references peripheral address `0x40002000`. Its register access pattern is consistent with a timer peripheral (the STM32H5 reference map, for example, places TIM14 at this address), making an STM32H5-class device a candidate worth checking. This is **not** a confirmed part identification: a single matching peripheral base is insufficient, and the image's address mapping still needs confirmation from more startup/vector evidence.
+
+A useful false-positive was eliminated: `0x42544400` is in the Cortex-M peripheral bit-band alias region, so it is not evidence of a TFT controller register block. The function that references it appears to manipulate bit-band state, not draw pixels.
+
+The 0x400 header field and the vector-table position must not be conflated with the code load base. The disassembler now defaults to the secure flash alias base `0x0C000000`, while retaining the `0x400` vector-table file offset. This mapping remains a working hypothesis until the reset handler and additional vector targets are reconciled conclusively.
