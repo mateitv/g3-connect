@@ -20,7 +20,7 @@ def disassembler(mode):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image", type=Path)
-    ap.add_argument("--base", type=lambda x: int(x, 0), default=0x0C000000)
+    ap.add_argument("--base", type=lambda x: int(x, 0), default=0x0C000400)
     ap.add_argument("--out", type=Path, default=Path("f3-ble-disassembly.md"))
     ap.add_argument("--vectors", type=lambda x: int(x, 0), default=0x400)
     ap.add_argument("--max-functions", type=int, default=100)
