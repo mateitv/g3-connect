@@ -13,11 +13,15 @@ The public `MacintoshKeyboardHacking/segMod` project explicitly says it was deve
 - The same header identifies a TFT navigation command family: `CMD_TFT_setNavi = 0x71`, with subcommands `0x00` start, `0x01` distance, `0x03` info, `0x10` road, `0x24` next road, `0x38` text, and `0xff` exit. It also identifies `TFT_SUBbase = 0xfe` for subscription-related traffic.
 - The source comments describe VCU-to-TFT (`0xfe`) realtime reports and parses subscription parameters. This is useful evidence about how the stock display receives data.
 
+### Cross-check against a second G3 Connect implementation
+
+A separate public G3 Connect Android implementation also sends the `0x23 / 0x71` command family for navigation only: distance at index `0x01`, current/next road strings at `0x10` and `0x24`, and maneuver information at `0x03`. Its road-string encoder uses UTF-8, truncates safely to 39 bytes, and appends a NUL terminator. This is an independent implementation of the navigation channel, not a music HUD.
+
 ### Critical limitation for our music HUD
 
 The `0x71 / 0x38` item is explicitly named as **navigation text**. It is not evidence of a general music overlay or a separate music-text API. Since the user does not want music metadata written into navigation fields, we will not repurpose this command. We also will not send it experimentally.
 
-The source gives us a real F3-specific protocol family to study, but it does not yet expose a supported command for arbitrary music title/artist text or a progress bar. That remains the key unknown.
+The source also lists `TFT_Display = 0x62` and `TFT_Alert = 0xd5`, but their semantics and payloads are not established. They are research leads only; we will not write to them. The sources do not yet expose a supported command for arbitrary music title/artist text or a progress bar. That remains the key unknown.
 
 ## Phone-to-scooter BLE is a separate layer
 
@@ -60,4 +64,5 @@ A real F3 capture would still be the strongest final verification, but this rese
 - `https://github.com/MacintoshKeyboardHacking/segMod` — explicitly developed on F3/GT3 and describes retaining the stock display.
 - `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/myBLE4/myBLEv4.ino` — UART routing, Ninebot frame parsing, checksum, VCU/TFT subscription handling.
 - `https://github.com/MacintoshKeyboardHacking/segMod/blob/main/myBLE4/x3regs.h` — x3 board IDs and TFT navigation command/subcommand definitions.
+- `https://github.com/sfw9/g3-connect/blob/main/android-bridge/src/de/g3connect/maps/NinebotClient.java` and `NaviPacket.java` — independent implementation showing that the 0x71 family carries navigation guidance and UTF-8 road strings.
 - `https://nootnooot.codeberg.page/segway-ninebot-ble/` — phone-to-BLE-module framing and Encryption2 handshake.
