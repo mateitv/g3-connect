@@ -150,3 +150,16 @@ The evidence now covers both sides of the *known* VCU/TFT telemetry path:
 4. The phone-side Segway 6.10.13 package contains an EasyConnect/Carbit automotive HUD integration, but that is not evidence of a scooter TFT music channel.
 
 The missing component is specifically the F3 BLE module's display firmware / TFT rendering implementation. ScooterHacking announced on 15 November 2026 that its X3 SHFW effort includes a completely rewritten BLE/display firmware for F3/F3 Pro, with a public beta targeted before the end of 2026. That source or its release may become the first credible route to a real custom TFT renderer. This is a research lead only; no firmware installation or flashing is being proposed.
+
+### Firmware archive discovery: original F3/F3 Pro BLE binaries are publicly mirrored
+
+A separate public archive, `Rexzy67/X3-Firmware`, contains stock F3/F3 Pro BLE firmware packages:
+- `0.3.12`
+- `0.3.14`
+- `0.4.0`
+
+The archive lists both ZIP packages and raw `FIRM_*.bin` files under `F3-F3PRO/Stock/BLE`. This is the first concrete firmware artifact lead for the missing BLE/display component. It is **binary firmware, not source code**, and its presence does not establish that it is unpacked, unencrypted, or directly suitable for disassembly. I have not flashed or modified any firmware.
+
+Repository path: https://github.com/Rexzy67/X3-Firmware/tree/main/F3-F3PRO/Stock/BLE
+
+The next technical step is static inspection of a locally available stock BLE image (identify container/header, image boundaries, MCU architecture and executable regions, then look for display-driver and command-dispatch code). The VCU source alone cannot answer this because the TFT renderer is on the BLE module.
