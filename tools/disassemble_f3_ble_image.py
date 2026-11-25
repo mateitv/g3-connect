@@ -91,6 +91,17 @@ def main():
         if not valid:
             continue
         functions.append((addr, off, valid))
+        movw_parts = {}
+        for ins in valid:
+            if ins.mnemonic == "movw" and len(ins.operands) >= 2:
+                movw_parts[ins.operands[0].reg] = ins.operands[1].imm & 0xFFFF
+            elif ins.mnemonic == "movt" and len(ins.operands) >= 2:
+                reg = ins.operands[0].reg
+                if reg in movw_parts:
+                    value = ((ins.operands[1].imm & 0xFFFF) << 16) | movw_parts.pop(reg)
+                    resolved = resolve_string(value)
+                    if resolved:
+                        string_refs.add((resolved[0], resolved[1], addr, ins.address))
         for ins in valid:
             if ins.mnemonic.startswith("bl"):
                 for op in ins.operands:
