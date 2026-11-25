@@ -32,6 +32,13 @@ The source also lists `TFT_Display = 0x62` and `TFT_Alert = 0xd5`, but their sem
 The official-app BLE protocol documentation describes the phone-to-BLE-module link: Ninebot framing, a custom Ninebot GATT service, AES-128-based Encryption2, and a PRE_COMM / SET_PWD / AUTH handshake. This is distinct from the internal BLE-to-VCU UART link above. A generic Nordic UART UUID or a legacy G30 register map is not sufficient evidence for F3 TFT rendering.
 
 
+
+### Cross-model protocol trap identified
+
+I checked a separate GT3 Pro BLE protocol reference as a cross-check. It documents a different board map (including a TFT address of `0x09` and a BLE address of `0x21`), while the F3/x3 `segMod` source maps the TFT as `0x23` and BLE as `0x04`. This is a useful warning: even scooters in the broader X3 family must not be assumed to share the same board-address table or command payloads. Our implementation target remains the F3 Pro, and we will not copy GT3 Pro packet addresses into it.
+
+Source checked: `https://github.com/djensenius/gt3pro/blob/main/docs/gt3-pro-ble-protocol.md` (GT3 Pro only; used as a contrast, not as F3 command documentation).
+
 ### Additional BLE/media and audio leads checked
 
 The x3 register header also names:
