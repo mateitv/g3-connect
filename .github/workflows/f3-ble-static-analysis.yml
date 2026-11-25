@@ -8,6 +8,11 @@ on:
       - 'tools/analyze_f3_ble_firmware.py'
       - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
       - '.github/workflows/f3-ble-static-analysis.yml'
+  pull_request:
+    paths:
+      - 'tools/analyze_f3_ble_firmware.py'
+      - 'docs/F3_PRO_MUSIC_HUD_PROTOCOL_RESEARCH.md'
+      - '.github/workflows/f3-ble-static-analysis.yml'
 
 permissions:
   contents: read
