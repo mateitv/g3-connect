@@ -132,6 +132,8 @@ def main():
                 if ins.mnemonic.startswith("pop") and "pc" in ins.op_str: break
                 if ins.mnemonic in ("mov", "movs") and ins.op_str.replace(" ", "") == "pc,lr": break
 
+                if ins.mnemonic in ("bx", "blx", "tbb", "tbh"):
+                    break
                 if ins.group(CS_GRP_JUMP) or ins.mnemonic in ("cbz", "cbnz"):
                     target = None
                     if ins.operands and ins.operands[-1].type == ARM_OP_IMM:
@@ -141,7 +143,6 @@ def main():
                     if ins.mnemonic in ("b", "b.w"): break
                     pc = next_pc
                     continue
-                if ins.mnemonic in ("bx", "blx", "tbb", "tbh"): break
                 pc = next_pc
 
         functions.append((start, origin, count, len(seen_blocks), sorted(fn_calls), sorted(fn_refs)))
