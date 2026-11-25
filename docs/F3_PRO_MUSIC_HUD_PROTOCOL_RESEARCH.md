@@ -31,6 +31,21 @@ The source also lists `TFT_Display = 0x62` and `TFT_Alert = 0xd5`, but their sem
 
 The official-app BLE protocol documentation describes the phone-to-BLE-module link: Ninebot framing, a custom Ninebot GATT service, AES-128-based Encryption2, and a PRE_COMM / SET_PWD / AUTH handshake. This is distinct from the internal BLE-to-VCU UART link above. A generic Nordic UART UUID or a legacy G30 register map is not sufficient evidence for F3 TFT rendering.
 
+
+### Additional BLE/media and audio leads checked
+
+The x3 register header also names:
+
+- `CMD_BLE_mediaEnable = 0x10` under the BLE command family (`CMD_BLE = 0x6f)). This is a lead for a BLE media-related feature, but the public source only defines the constant; I found no call site or documented payload/semantics. It is not proof that the TFT accepts song metadata.
+- `CMD_AUDIO_BEGIN = 0x76`, `CMD_AUDIO_WR = 0x77`, and `CMD_AUDIO_CRC = 0x78` are described as audio upload/chunk/CRC commands. These look like uploading an audio asset to the scooter, not sending live media-session metadata. They are not suitable for track title, artist, or playback progress.
+- `TFT_Display = 0x62` is explicitly marked unknown by the source author (with speculative display-state values). `TFT_Alert = 0xd5` is named but has no published payload definition. Neither is safe to repurpose or probe blindly.
+
+The debug trace includes writes to `0x62` and `0xd5`, but the observed values do not establish a music function. No write will be attempted.
+
+### Firmware research status
+
+ScooterHacking announced on 15 November 2026 that its X3 SHFW work includes a fully rewritten BLE/display firmware for F3/F3 Pro and other X3 models, with public beta targeted before the end of 2026. This is potentially the most promising future source of an open, model-aware TFT implementation. It is not a solution we should install or flash now: the project is still pre-beta in that announcement, and the user has explicitly asked to keep the current scooter firmware and app setup intact.
+
 ## What this means for the project
 
 Already verified:
