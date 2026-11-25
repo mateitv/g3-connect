@@ -8,8 +8,8 @@ from collections import deque
 from pathlib import Path
 from capstone import (
     Cs, CS_ARCH_ARM, CS_MODE_THUMB, CS_MODE_MCLASS, CS_MODE_LITTLE_ENDIAN,
-    ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC,
 )
+from capstone.arm_const import ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC
 
 def disassembler(mode):
     md = Cs(CS_ARCH_ARM, mode)
