@@ -344,3 +344,14 @@ The run completed successfully (workflow run `45589617239`, artifact `1500950457
 This is a useful negative result, not proof that the code has no such path. The firmware contains OSAL task creation strings and separate task names (`bts_task`, `lvgl_view`, `uart_process_task`, `navi_task`), which suggests that some important work may be entered through RTOS-created task functions, callback registration, or data tables not reachable through reset/vector direct-call traversal. The string addresses also appear in a large mixed resource/symbol region; the current analysis has not validated its runtime pointer model.
 
 **Next static step:** identify OSAL task-creation call sites and their task-entry function pointers, then seed those task entries into the CFG. In parallel, locate callback registration and indirect dispatch around AVRCP/media status and UART/LVGL tasks. A live phone-to-scooter BLE capture will still be needed to prove any phone-addressable display route; no speculative command should be sent.
+
+
+### Feasibility check against current public F3/G3 dashboard projects (25 Nov 2026)
+
+A fresh public-project check found two relevant dashboard/customization paths:
+- xnevio's BetaCockpitV3 supports F3, F3 Pro and Max G3, but its published feature list describes a flash-installed dashboard with a selectable info box for ride statistics (odometer, trip, motor temperature, current, power, average speed, ride time). It does not document music title/artist/progress, and installation requires flashing display firmware. This does not meet the current no-flash requirement.
+- OPENX3/VEXORA likewise describes firmware flashing for visual customization, not a live music metadata API. It is not a drop-in app-side solution.
+
+This reinforces the distinction between (a) an app-side media-session preview, which is already working, and (b) an actual stock TFT rendering path. The known public segMod F3/G3 architecture places Bluetooth and TFT control in the BLE module, with a UART link to the VCU. The documented `CMD_TFT_setNavi` text path is a navigation overlay and remains explicitly out of scope for this project.
+
+**Current go/no-go:** no documented, verified stock-firmware command has been found that accepts arbitrary now-playing text/progress and renders it as a separate music HUD without repurposing navigation or changing firmware. The Android bridge must not send guessed display opcodes. A testable scooter-side prototype requires either a verified existing stock display endpoint or an explicitly approved custom BLE/display firmware route. The latter is outside the current no-flash constraint.
