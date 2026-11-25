@@ -104,3 +104,20 @@ Results:
 - `TFT_Display = 0x62` remains explicitly marked unknown, and `TFT_Alert = 0xd5` still has no payload definition. The main sketch's only matching TFT-subscription reference is a commented-out diagnostic line; it does not reveal a supported write interface.
 
 This narrows the next step: do not build a sender around `0x6f/0x10` or `0x23/0x62` based on names alone. The next useful evidence would be an implementation or trace that shows a real request/response and a TFT-side effect for a display-only music operation. Until then, the music-to-TFT transport remains unknown.
+
+### Deeper inspection: what the TFT subscription channel actually carries
+
+I followed the relevant code paths in the complete `segMod` F3/X3 sketch instead of treating the `0xfe` packet as a generic display API.
+
+- The sketch identifies packets addressed to TFT `0x23`, index `0xfe`, as the TFT subscription update. It decodes that payload using a previously received subscription map, where each entry is a 32-bit subscription ID plus a bit length.
+- The decoded values are then unpacked into the subscription-value table. The example IDs in `x3regs.h` are vehicle telemetry/state: speed, remaining distance, trip distance, battery percentage, charging, gear mode, headlight, TCS/SABS and related riding flags.
+- The old compatibility subscription request `bSub` is a BLE-to-VCU request containing those subscription IDs and bit widths. It is not a request for arbitrary text or a music card.
+- In the live packet loop, the author modifies selected fields in the VCU-to-TFT `0xfe` subscription payload (for example, remaining range and overspeed-related bits) and forwards the packet. The code does not construct a new music display object, title string, artist string, or playback-progress field.
+- The public debug trace independently shows repeated `on_pub_sub` events with source 22 (decimal, VCU `0x16`), destination 35 (decimal, TFT `0x23`), command 3, index 254 (`0xfe`), and a 35-byte data field. This matches the telemetry-subscription path. The trace does not include the actual payload bytes, so it cannot identify any undocumented field beyond that.
+
+**Conclusion:** `0xfe` is a packed subscription/telemetry update path, not a documented general-purpose TFT text/card interface. We should not try to squeeze track text into its bit fields. The known `0x71` navigation family remains separate and is also off-limits for music metadata. No safe, documented F3 TFT music-display write path has emerged from this source.
+
+Sources inspected:
+- `myBLE4/myBLEv4.ino`: `subMap()`, `subSet()`, `doRXdecode()`, and the main packet-forwarding loop around the `0x23 / 0xfe` handler.
+- `myBLE4/x3regs.h`: `ECU_TFT`, `TFT_SUBbase`, subscription ID definitions, and the `bSub` subscription request.
+- `logs/BLEuart2-debugx-log.txt`: repeated `on_pub_sub` events with the VCU-to-TFT address/command/index tuple.
