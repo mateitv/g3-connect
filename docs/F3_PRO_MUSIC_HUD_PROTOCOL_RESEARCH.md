@@ -313,3 +313,18 @@ A raw pointer-value scan of the candidate string addresses also found no direct 
 
 **Current conclusion:** stock BLE 0.4.0 clearly has a display stack and Bluetooth media-control functions. The existence of a metadata-to-display path remains unproven. The next decisive task is to recover the firmware's actual section/function boundaries and follow the AVRCP media-status callback and UART dispatcher into the LVGL update task. Do not send guessed UART/GATT messages or patch/flash the stock image.
 
+
+
+### Additional UI/resource inventory
+
+A broader scan of task and UI resource strings found:
+- `bts_task` and `bts_task_handler started` for the Bluetooth stack.
+- `lvgl_view` and `Start cluster task` for the LVGL/UI task.
+- `uart_process_task`, `Uart dispatcher`, and `Display Comm. Error` for the UART/display communication subsystem.
+- `navi_task` and `btapp_navi_data_received` for navigation.
+- `Remote volume control`, `music control/mute incoming calls`, `play or pause`, `Previous song`, and `Next song` for the media-control feature.
+- `bt_music_connect_status`, `Media bluetooth paired`, and `popup_2lines_title_media...` for Bluetooth media connection/pairing UI resources.
+
+This strengthens the distinction: the stock interface has visible resources for media pairing/control and navigation, but the extracted resource names do not reveal a persistent now-playing title/artist/progress widget. The media popup resource is a pairing/status popup, not evidence of a track-information screen.
+
+A reproducible offline inventory utility was added at `tools/report_f3_ble_media_surface.py`, with basic unit tests at `tests/test_report_f3_ble_media_surface.py`. It intentionally reports string presence only and avoids inferring runtime semantics.
