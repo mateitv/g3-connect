@@ -163,3 +163,31 @@ The archive lists both ZIP packages and raw `FIRM_*.bin` files under `F3-F3PRO/S
 Repository path: https://github.com/Rexzy67/X3-Firmware/tree/main/F3-F3PRO/Stock/BLE
 
 The next technical step is static inspection of a locally available stock BLE image (identify container/header, image boundaries, MCU architecture and executable regions, then look for display-driver and command-dispatch code). The VCU source alone cannot answer this because the TFT renderer is on the BLE module.
+
+### Stock BLE 0.4.0 decrypted successfully (major reverse-engineering milestone)
+
+The read-only CI workflow downloaded the public F3/F3 Pro stock BLE 0.4.0 package and inspected its archive. The package contains:
+- `FIRM.bin.enc` (1,835,488 bytes)
+- `info.json`, which identifies model `f3`, component `BLE`, version `0.4.0`, and marks the payload as encrypted.
+
+The encrypted payload MD5 in `info.json` was verified. The payload was then decrypted using the published NinebotTEA CBC/rolling-key/checksum format with the public default key and classic TEA variant. The final Ninebot checksum matched exactly. This is strong verification that the decrypted output is valid, not merely a guessed decryption.
+
+Verified decrypted image:
+- Size: 1,835,484 bytes
+- SHA-256: `6e51fad22b5d8b5045a9ab8ae27df64ab173641372d14d4ed94996dd38b1a635`
+- Image magic: `RAW4TFT`
+- Vector table offset indicated by the image header: `0x400`
+- Initial stack pointer: `0x20080000`
+- Reset vector: `0x0C028571` (Thumb entry at `0x0C028570`)
+- Mapping base inferred by matching reset-vector address to the corresponding file offset: `0x0C000000`
+- Reset handler file offset: `0x28570`
+
+The image is no longer opaque ciphertext: its reset vector and handler bytes decode as Thumb/Thumb-2-looking code. This establishes a concrete path into the BLE/display firmware. It does **not yet** identify the MCU model, TFT driver, GUI library, or any music command. Those need to be established from the disassembly and peripheral initialization.
+
+New read-only tooling committed:
+- `tools/decrypt_ninebot_x3_package.py` — verifies the package MD5, decrypts NinebotTEA, and verifies the embedded checksum.
+- `tools/disassemble_f3_ble_image.py` — uses Capstone to disassemble the reset handler and in-image vector handlers.
+- `tools/analyze_f3_ble_firmware.py` — archive/image triage, hashes, entropy and strings.
+- `.github/workflows/f3-ble-static-analysis.yml` — downloads and inspects the public image in CI; no scooter connection or flashing.
+
+The next reverse-engineering target is the decrypted BLE image's startup path, interrupt vectors, peripheral setup, and references to SPI/display buffers. We must identify the renderer and its message ingress before designing a music metadata packet. The known navigation `0x71` and telemetry `0xFE` channels remain excluded.
