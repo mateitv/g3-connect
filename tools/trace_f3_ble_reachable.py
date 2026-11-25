@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse, hashlib, re, struct
 from collections import deque
 from pathlib import Path
-from capstone import Cs, CS_ARCH_ARM, CS_MODE_THUMB, CS_MODE_MCLASS, CS_MODE_LITTLE_ENDIAN
+from capstone import Cs, CS_ARCH_ARM, CS_MODE_THUMB, CS_MODE_MCLASS, CS_MODE_LITTLE_ENDIAN, CS_GRP_JUMP
 from capstone.arm_const import ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC
 
 KEYWORDS = (
@@ -84,6 +84,7 @@ def main():
         count = 0
         while blocks and count < args.max_instructions_per_function:
             pc = blocks.popleft() & ~1
+            movw_values = {}
             if pc in seen_blocks: continue
             seen_blocks.add(pc)
             while args.base <= pc < args.base + len(data) and count < args.max_instructions_per_function:
@@ -95,17 +96,15 @@ def main():
                 seen_ins.add(pc); count += 1; total_ins += 1
                 next_pc = pc + ins.size
 
+                if ins.mnemonic == "movw" and len(ins.operands) >= 2:
+                    movw_values[ins.operands[0].reg] = ins.operands[1].imm & 0xffff
                 if ins.mnemonic == "movt" and len(ins.operands) >= 2:
                     reg = ins.operands[0].reg
-                    # Search only a short preceding instruction window for matching MOVW.
-                    back = max(0, off - 0x20)
-                    prior_ins = list(md.disasm(data[back:off], args.base + back))
-                    for prior in reversed(prior_ins):
-                        if prior.mnemonic == "movw" and len(prior.operands) >= 2 and prior.operands[0].reg == reg:
-                            value = ((ins.operands[1].imm & 0xffff) << 16) | (prior.operands[1].imm & 0xffff)
-                            found = string_at(value)
-                            if found: fn_refs.add((found[0], found[1], pc, "MOVW/MOVT"))
-                            break
+                    if reg in movw_values:
+                        value = ((ins.operands[1].imm & 0xffff) << 16) | movw_values[reg]
+                        found = string_at(value)
+                        if found: fn_refs.add((found[0], found[1], pc, "MOVW/MOVT"))
+                        del movw_values[reg]
                 if ins.mnemonic == "adr" and len(ins.operands) >= 2 and ins.operands[1].type == ARM_OP_IMM:
                     raw = ins.operands[1].imm
                     for candidate in (raw, ((pc + 4) & ~3) + raw):
@@ -133,7 +132,7 @@ def main():
                 if ins.mnemonic.startswith("pop") and "pc" in ins.op_str: break
                 if ins.mnemonic in ("mov", "movs") and ins.op_str.replace(" ", "") == "pc,lr": break
 
-                if ins.mnemonic.startswith("b") or ins.mnemonic in ("cbz", "cbnz"):
+                if ins.group(CS_GRP_JUMP) or ins.mnemonic in ("cbz", "cbnz"):
                     target = None
                     if ins.operands and ins.operands[-1].type == ARM_OP_IMM:
                         target = ins.operands[-1].imm & ~1
