@@ -191,3 +191,13 @@ New read-only tooling committed:
 - `.github/workflows/f3-ble-static-analysis.yml` — downloads and inspects the public image in CI; no scooter connection or flashing.
 
 The next reverse-engineering target is the decrypted BLE image's startup path, interrupt vectors, peripheral setup, and references to SPI/display buffers. We must identify the renderer and its message ingress before designing a music metadata packet. The known navigation `0x71` and telemetry `0xFE` channels remain excluded.
+
+### Address-map correction after vector-table cross-check
+
+A first-pass mapping treated the vector table's file offset `0x400` as if it were part of the mapped address base. Comparing several vector targets against the bytes at both candidate offsets showed that this was off by `0x400`. The better-supported mapping is:
+- The image header occupies the first `0x400` bytes.
+- The vector table begins at file offset `0x400` and maps at `0x0C000400`.
+- Reset vector `0x0C028571` therefore maps to file offset `0x28170` (not `0x28570`).
+- Other vector targets also land on more plausible Thumb function entries with this mapping.
+
+The disassembler default base has been corrected to `0x0C000400`. The previous base/offset figures above are superseded. This is a static mapping inference, to be checked against the full vector table and startup code before assigning MCU identity or peripheral addresses.
