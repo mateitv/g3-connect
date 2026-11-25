@@ -328,3 +328,19 @@ A broader scan of task and UI resource strings found:
 This strengthens the distinction: the stock interface has visible resources for media pairing/control and navigation, but the extracted resource names do not reveal a persistent now-playing title/artist/progress widget. The media popup resource is a pairing/status popup, not evidence of a track-information screen.
 
 A reproducible offline inventory utility was added at `tools/report_f3_ble_media_surface.py`, with basic unit tests at `tests/test_report_f3_ble_media_surface.py`. It intentionally reports string presence only and avoids inferring runtime semantics.
+
+
+### Reachability-guided Thumb control-flow pass (25 Nov 2026)
+
+Added `tools/trace_f3_ble_reachable.py` and wired it into the stock-firmware CI workflow. Unlike the earlier whole-image halfword sweep, this pass starts from the reset vector and vector-table entries, follows direct Thumb calls and conditional/unconditional branches, and checks reachable instructions for direct ADR, MOVW/MOVT, and PC-relative LDR references to media/display/UART strings.
+
+The run completed successfully (workflow run `45589617239`, artifact `15009504573`) against the same decrypted stock BLE 0.4.0 image:
+- 87 valid vector-table entries (including repeated/default handler entries).
+- 529 function candidates visited.
+- 32,347 reachable instructions decoded.
+- 2,400 direct call edges observed (count includes repeated edges/call sites).
+- Zero direct references to the selected media/display/UART string set resolved from this reachable-code graph.
+
+This is a useful negative result, not proof that the code has no such path. The firmware contains OSAL task creation strings and separate task names (`bts_task`, `lvgl_view`, `uart_process_task`, `navi_task`), which suggests that some important work may be entered through RTOS-created task functions, callback registration, or data tables not reachable through reset/vector direct-call traversal. The string addresses also appear in a large mixed resource/symbol region; the current analysis has not validated its runtime pointer model.
+
+**Next static step:** identify OSAL task-creation call sites and their task-entry function pointers, then seed those task entries into the CFG. In parallel, locate callback registration and indirect dispatch around AVRCP/media status and UART/LVGL tasks. A live phone-to-scooter BLE capture will still be needed to prove any phone-addressable display route; no speculative command should be sent.
