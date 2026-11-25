@@ -253,3 +253,27 @@ This is real media-control support, but it does **not** prove that the stock TFT
 The original TFT has a real graphics stack, and the firmware has Bluetooth media-control functions. That is an encouraging hardware/software capability finding, but it is not yet a supported phone-to-TFT metadata path. The known navigation `0x71` and packed telemetry `0xFE` channels remain excluded. No guessed `0x62`, `0xD5`, or other undocumented payload will be sent.
 
 A gold *phone-side* preview already exists and was verified with Spotify/YouTube Music metadata and playback progress. A gold *physical TFT* prototype is not ready: it requires either a documented stock-firmware command that safely updates a dedicated media UI, or a firmware-side change. The latter would violate the current no-flashing constraint, so it is not being treated as an acceptable test route.
+
+
+### Stock BLE 0.4.0: first whole-image string and reference pass
+
+I downloaded the successful CI artifact for run `45578654164` and inspected the decrypted image and generated reports locally. The image hash remains `6e51fad22b5d8b5045a9ab8ae27df64ab173641372d14d4ed94996dd38b1a635`.
+
+The image contains a real set of display-stack strings:
+- `lvgl_view`, `lv_draw_label`, and multiple LVGL source-path strings, confirming that LVGL code/resources are embedded in the stock BLE image.
+- `st7735`, `/dev/spi0`, `/dev/gpio`, and `Display initialized.`, consistent with the TFT driver/display initialization path.
+- `update_display_content` and `write_cb tft not ready`, which are useful display-update/logging leads.
+- `Uart dispatcher` diagnostics, consistent with a UART message-dispatch service.
+
+The image also contains a Bluetooth audio-control cluster of labels:
+- `bts_media_enable`, `bts_media_next_song`, `bts_media_previous_song`, `bts_media_play`, `bts_media_vol_up`, `bts_media_vol_down`, and `bts_media_status_change_notify`.
+- Related labels include `bts_avrcp_controller_nextsong`, `bts_avrcp_controller_presong`, `bts_media_connect`, and `bts_media_connect_status_change_notify`.
+- Diagnostic strings describe a `bts_media_enable` operation and its completion result.
+
+**Interpretation boundary:** this is evidence that the BLE firmware contains Bluetooth media-control / AVRCP-related functionality. It does not establish that the scooter TFT receives song title, artist, album, elapsed time, or duration. A scan of printable strings found no `artist`, `album`, `playback`, or `position` terms; `title` matches were unrelated UI asset names. These negative string results are suggestive, not proof that metadata is absent (metadata could be encoded, dynamically supplied, or handled without descriptive strings).
+
+The updated whole-image Thumb string-xref scan resolved only three references, all associated with screen-backlight diagnostics. It did **not** resolve references to the media labels, `update_display_content`, or the TFT/LVGL labels. The scan is heuristic and may miss indirect calls, jump tables, relocation tables, data pointers, or code outside its assumed mapping. Therefore it cannot yet connect `bts_media_enable` or a UART message to the LVGL display update path.
+
+The xref resolver was improved to accept pointers into the middle of candidate strings (commit `c4957694b76c8ccf7a21ed789f4917337fd16aee`). CI run `45578654164` completed successfully and produced artifact `15005118300`.
+
+**Next reverse-engineering task:** establish the actual image memory/section mapping and recover references to the UART dispatcher and display update routine using a proper ARM/Thumb-aware function-boundary and data-reference analysis. In parallel, trace whether the AVRCP media-control cluster ever forwards metadata to an application/UI callback. Until that bridge is proven, do not implement or transmit a guessed TFT packet.
