@@ -36,9 +36,33 @@ def main():
         if any(k.lower() in raw.lower() for k in KEYWORDS):
             strings[args.base + m.start()] = (m.start(), raw.decode("ascii", "replace"))
 
+    # A compiler may reference an interior byte of a format string (for
+    # example, a suffix used by a logger). Resolve any address inside a
+    # candidate string, not only the first byte. Keep offsets so the report
+    # distinguishes a pointer to the beginning from one to an interior suffix.
+    ordered_strings = sorted((address, address + len(text.encode("ascii", "replace")), off, text)
+                             for address, (off, text) in strings.items())
+    starts = [item[0] for item in ordered_strings]
+
     def string_at(address):
-        if address in strings:
-            return strings[address]
+        import bisect
+        index = bisect.bisect_right(starts, address) - 1
+        if index >= 0:
+            start, end, off, text = ordered_strings[index]
+            if start <= address < end:
+                suffix = text[address - start:]
+                return off + (address - start), suffix
+        # Some firmware tables store image-relative offsets rather than
+        # absolute pointers. Accept both the configured base and the
+        # 0x400-byte vector/header displacement as explicit candidates.
+        for candidate_base in (0, 0x400):
+            relative = address - candidate_base
+            index = bisect.bisect_right(starts, args.base + relative) - 1
+            if index >= 0:
+                start, end, off, text = ordered_strings[index]
+                if start <= args.base + relative < end:
+                    delta = args.base + relative - start
+                    return off + delta, text[delta:]
         return None
 
     movw = {}
